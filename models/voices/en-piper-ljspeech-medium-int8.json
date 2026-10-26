@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "id": "en-piper-ljspeech-medium",
+  "name": "English (LJSpeech, female)",
+  "description": "Piper VITS voice trained on the public-domain LJ Speech dataset, INT8-quantized.",
+  "version": "1.0.0-int8",
+  "engine": "vits",
+  "languages": ["en"],
+  "languageHandling": { "en": "native" },
+  "locale": "en-US",
+  "gender": "female",
+  "quality": "fast",
+  "sampleRate": 22050,
+  "maxChunkChars": 220,
+  "personal": false,
+  "files": {
+    "model": "model/en_US-ljspeech-medium.onnx",
+    "tokens": "model/tokens.txt",
+    "dataDir": "model/espeak-ng-data"
+  },
+  "speakers": [{ "id": 0, "key": "default", "label": "Natural" }],
+  "defaults": { "noiseScale": 0.667, "noiseScaleW": 0.8, "lengthScale": 1.0 },
+  "supports": { "speed": true, "pitch": false },
+  "license": {
+    "name": "Dataset public domain (LJ Speech); Piper model MIT; espeak-ng-data GPL-3.0",
+    "url": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/ljspeech",
+    "commercialUse": true,
+    "attribution": "Piper voice en_US-ljspeech-medium; LJ Speech dataset by Keith Ito."
+  },
+  "include": {
+    "model/en_US-ljspeech-medium.onnx": "en_US-ljspeech-medium.onnx",
+    "model/tokens.txt": "tokens.txt",
+    "model/espeak-ng-data": "espeak-ng-data"
+  }
+}

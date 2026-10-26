@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "id": "bn-mimic3-multi-low",
+  "name": "Bangla (Mimic3, multi-speaker)",
+  "description": "Development voice: Mimic 3 Bengali multi-speaker VITS model converted for sherpa-onnx. Reads English words with Bangla pronunciation.",
+  "version": "0.1.0",
+  "engine": "vits",
+  "languages": ["bn"],
+  "languageHandling": { "bn": "native", "en": "transliterate" },
+  "locale": "bn-BD",
+  "accent": "Bangladeshi / Indian Bengali mix (OpenSLR 37 + CMU Indic)",
+  "quality": "fast",
+  "sampleRate": 22050,
+  "maxChunkChars": 180,
+  "personal": false,
+  "files": {
+    "model": "model/bn-multi_low.onnx",
+    "tokens": "model/tokens.txt",
+    "dataDir": "model/espeak-ng-data"
+  },
+  "speakers": [
+    { "id": 1, "key": "speaker-1", "label": "Speaker 1" },
+    { "id": 2, "key": "speaker-2", "label": "Speaker 2" },
+    { "id": 3, "key": "speaker-3", "label": "Speaker 3" },
+    { "id": 4, "key": "speaker-4", "label": "Speaker 4" },
+    { "id": 5, "key": "speaker-5", "label": "Speaker 5" },
+    { "id": 0, "key": "speaker-cmu", "label": "Speaker 6" }
+  ],
+  "defaults": { "noiseScale": 0.333, "noiseScaleW": 0.333, "lengthScale": 1.0 },
+  "supports": { "speed": true, "pitch": false },
+  "license": {
+    "name": "Training data CC-BY-SA-4.0 (OpenSLR 37) + CMU Indic; model weights license not stated; espeak-ng-data GPL-3.0",
+    "url": "https://github.com/MycroftAI/mimic3-voices/tree/master/voices/bn/multi_low",
+    "commercialUse": false,
+    "attribution": "Mimic 3 voice by Mycroft AI; data: Google Bengali crowdsourced TTS (OpenSLR 37), CMU Indic. Not cleared for commercial use — verify first."
+  },
+  "include": {
+    "model/bn-multi_low.onnx": "bn-multi_low.onnx",
+    "model/tokens.txt": "tokens.txt",
+    "model/espeak-ng-data": "espeak-ng-data"
+  }
+}
