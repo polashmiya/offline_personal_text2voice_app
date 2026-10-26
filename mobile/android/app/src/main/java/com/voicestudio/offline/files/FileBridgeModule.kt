@@ -18,6 +18,7 @@ import com.facebook.react.bridge.WritableMap
 import com.voicestudio.offline.BuildConfig
 import com.voicestudio.offline.specs.NativeFileBridgeSpec
 import com.voicestudio.offline.util.ErrorCodes
+import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -25,6 +26,9 @@ import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.zip.CRC32
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * File access using the Storage Access Framework (no broad storage
@@ -226,6 +230,51 @@ class FileBridgeModule(private val context: ReactApplicationContext) :
         putDouble("totalBytes", result.totalBytes.toDouble())
       }
     }
+
+  override fun createZip(entries: ReadableArray, outputPath: String, promise: Promise) = async(promise) {
+    val out = safeFile(outputPath)
+    out.parentFile?.mkdirs()
+    val temp = File(out.parentFile, "${out.name}.part")
+    val items = (0 until entries.size()).map { i ->
+      val map = entries.getMap(i) ?: throw IOException("Invalid zip entry")
+      val name = map.getString("zipPath") ?: throw IOException("Invalid zip entry")
+      if (name.isEmpty() || name.startsWith("/") || name.contains("..") || name.contains("\\")) {
+        throw IOException("Unsafe zip path")
+      }
+      name to safeFile(map.getString("sourcePath") ?: throw IOException("Invalid zip entry"))
+    }
+    ZipOutputStream(BufferedOutputStream(FileOutputStream(temp), 1 shl 16)).use { zip ->
+      val buffer = ByteArray(64 * 1024)
+      for ((name, file) in items) {
+        if (!file.isFile) throw IOException("Missing file for $name")
+        val entry = ZipEntry(name)
+        // WAV barely compresses; store it (needs size + CRC up front) to keep exports fast.
+        if (name.endsWith(".wav")) {
+          val crc = CRC32()
+          FileInputStream(file).use { input ->
+            while (true) {
+              val n = input.read(buffer)
+              if (n < 0) break
+              crc.update(buffer, 0, n)
+            }
+          }
+          entry.method = ZipEntry.STORED
+          entry.size = file.length()
+          entry.compressedSize = file.length()
+          entry.crc = crc.value
+        }
+        zip.putNextEntry(entry)
+        FileInputStream(file).use { it.copyTo(zip, buffer.size) }
+        zip.closeEntry()
+      }
+    }
+    if (out.exists()) out.delete()
+    if (!temp.renameTo(out)) throw IOException("Could not write archive")
+    Arguments.createMap().apply {
+      putInt("fileCount", items.size)
+      putDouble("sizeBytes", out.length().toDouble())
+    }
+  }
 
   override fun sha256(path: String, promise: Promise) = async(promise) {
     val digest = MessageDigest.getInstance("SHA-256")

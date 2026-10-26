@@ -5,8 +5,10 @@
 import VoiceEngine from './specs/NativeVoiceEngine';
 import AudioTools from './specs/NativeAudioTools';
 import FileBridge from './specs/NativeFileBridge';
+import VoiceRecorder from './specs/NativeVoiceRecorder';
 
-export { VoiceEngine, AudioTools, FileBridge };
+export { VoiceEngine, AudioTools, FileBridge, VoiceRecorder };
+export type { TakeAnalysis, RecorderLevel, NoiseMeasurement } from './specs/NativeVoiceRecorder';
 export type {
   EngineVoiceConfig,
   EngineLoadResult,

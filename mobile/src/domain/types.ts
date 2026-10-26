@@ -109,4 +109,6 @@ export type AppErrorCode =
   | 'export_failed'
   | 'file_permission'
   | 'empty_text'
+  | 'mic_permission'
+  | 'recording_failed'
   | 'unknown';

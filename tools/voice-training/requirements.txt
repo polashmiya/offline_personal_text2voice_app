@@ -1,0 +1,6 @@
+# Installed on top of piper1-gpl v1.8.0 `pip install -e '.[train]'` (see README).
+sherpa-onnx==1.13.8   # same engine version as the Android app
+onnx>=1.16
+onnxruntime>=1.18
+soundfile>=0.12
+numpy>=1.26

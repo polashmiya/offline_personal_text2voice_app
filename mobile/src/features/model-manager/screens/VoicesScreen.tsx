@@ -102,8 +102,8 @@ export function VoicesScreen() {
           <Icon name="mic" />
           <View style={styles.flex}>
             <AppText variant="bodyStrong">{t('voices.createMine')}</AppText>
-            <AppText variant="caption" tone="faint">
-              {t('common.comingSoon')}
+            <AppText variant="caption" tone="muted">
+              {t('voices.createMineBody')}
             </AppText>
           </View>
           <Icon name="chevronRight" size={20} />

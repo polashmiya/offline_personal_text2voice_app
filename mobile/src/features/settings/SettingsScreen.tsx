@@ -11,6 +11,7 @@ import type { ExportFormat, LanguageMode } from '../../domain/types';
 import { BITRATES, FORMAT_INFO } from '../../domain/export/fileName';
 import { FileBridge } from '../../services/native';
 import { deleteAllUserData } from '../../services/db/repositories';
+import { studioRepo } from '../voice-studio/services/studioRepo';
 import { paths } from '../../services/storage/paths';
 import { usePlayer } from '../audio-studio/player/playerStore';
 import { useGeneration } from '../tts/store/generationStore';
@@ -49,8 +50,9 @@ export function SettingsScreen() {
     }
     await usePlayer.getState().unload();
     await deleteAllUserData();
+    await studioRepo.deleteAll();
     const p = paths();
-    await Promise.all([p.generated, p.exports, p.drafts, p.jobs, p.imports].map(dir => FileBridge.deletePath(dir).catch(() => undefined)));
+    await Promise.all([p.generated, p.exports, p.drafts, p.jobs, p.imports, p.studio].map(dir => FileBridge.deletePath(dir).catch(() => undefined)));
     showToast(t('settings.deleted'), 'success');
   };
 

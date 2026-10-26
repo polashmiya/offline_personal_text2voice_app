@@ -13,6 +13,8 @@ const KNOWN: AppErrorCode[] = [
   'export_failed',
   'file_permission',
   'empty_text',
+  'mic_permission',
+  'recording_failed',
 ];
 
 const NATIVE_ALIASES: Record<string, AppErrorCode> = {

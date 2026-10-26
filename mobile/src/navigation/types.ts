@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { StyleKey } from '../domain/voice-dataset/types';
 
 export type TabParamList = {
   Home: undefined;
@@ -13,6 +14,10 @@ export type RootStackParamList = {
   Export: { generationId: string };
   VoiceDetail: { voiceId: string };
   VoiceStudio: undefined;
+  CreateVoice: undefined;
+  StudioProject: { projectId: string };
+  RecordSession: { projectId: string; style: StyleKey };
+  TrainingGuide: undefined;
   Dictionary: undefined;
   Storage: undefined;
   Licenses: undefined;

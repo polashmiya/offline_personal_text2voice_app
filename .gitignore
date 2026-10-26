@@ -9,3 +9,12 @@ mobile/android/app/libs/*.aar
 mobile/android/app/libs/*.part
 mobile/android/lame/.cxx/
 mobile/android/lame/build/
+
+# Voice training outputs (large, personal)
+tools/voice-training/cache/
+tools/voice-training/runs/
+tools/voice-training/work/
+tools/voice-training/dist/
+*.ckpt
+*.voicedataset.zip
+__pycache__/

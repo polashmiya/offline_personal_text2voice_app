@@ -15,4 +15,6 @@ object ErrorCodes {
   const val INVALID_PACKAGE = "invalid_voice_package"
   const val IO = "io_error"
   const val BUSY = "busy"
+  const val MIC_PERMISSION = "mic_permission"
+  const val RECORDING_FAILED = "recording_failed"
 }

@@ -15,6 +15,10 @@ import { StorageScreen } from '../features/settings/StorageScreen';
 import { LicensesScreen } from '../features/settings/LicensesScreen';
 import { ExportScreen } from '../features/audio-studio/export/ExportScreen';
 import { VoiceStudioScreen } from '../features/voice-studio/VoiceStudioScreen';
+import { CreateVoiceScreen } from '../features/voice-studio/screens/CreateVoiceScreen';
+import { StudioProjectScreen } from '../features/voice-studio/screens/StudioProjectScreen';
+import { RecordSessionScreen } from '../features/voice-studio/screens/RecordSessionScreen';
+import { TrainingGuideScreen } from '../features/voice-studio/screens/TrainingGuideScreen';
 import { OnboardingScreen } from '../features/onboarding/OnboardingScreen';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -64,6 +68,10 @@ export function RootNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <Stack.Screen name="Export" component={ExportScreen} options={{ title: t('export.title'), presentation: 'modal' }} />
       <Stack.Screen name="VoiceDetail" component={VoiceDetailScreen} options={{ title: '' }} />
       <Stack.Screen name="VoiceStudio" component={VoiceStudioScreen} options={{ title: t('studio.title') }} />
+      <Stack.Screen name="CreateVoice" component={CreateVoiceScreen} options={{ title: t('studio.createTitle') }} />
+      <Stack.Screen name="StudioProject" component={StudioProjectScreen} options={{ title: '' }} />
+      <Stack.Screen name="RecordSession" component={RecordSessionScreen} options={{ title: '' }} />
+      <Stack.Screen name="TrainingGuide" component={TrainingGuideScreen} options={{ title: t('studio.guideTitle') }} />
       <Stack.Screen name="Dictionary" component={DictionaryScreen} options={{ title: t('dictionary.title') }} />
       <Stack.Screen name="Storage" component={StorageScreen} options={{ title: t('storage.title') }} />
       <Stack.Screen name="Licenses" component={LicensesScreen} options={{ title: t('licenses.title') }} />

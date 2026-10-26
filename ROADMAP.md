@@ -6,6 +6,11 @@ Every step ends with a runnable app (or a working tool) and a clear "done" check
 
 > Core promise: **Your text. Your voice. Your device.** — 100% free, offline-first, no paid APIs, no account.
 
+**Progress (2026-10-26):** steps 3–8 built. Step 2 done by exporting the openly licensed Piper `bn_BD`
+checkpoint (6 Bangladeshi speakers) instead of training from scratch. Steps 10–11 built: Voice Studio
+recording with quality checks and dataset export, plus `tools/voice-training` (prepare → fine-tune →
+export → `.voicepack`, Colab notebook). Remaining: step 9 (background music / mixer) and step 12.
+
 ---
 
 ## A. Changes made to the master prompt (and why)

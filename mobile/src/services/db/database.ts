@@ -72,6 +72,37 @@ const MIGRATIONS: string[][] = [
        updated_at TEXT NOT NULL
      )`,
   ],
+  // v2 — Personal Voice Studio
+  [
+    `CREATE TABLE voice_projects (
+       id TEXT PRIMARY KEY,
+       name TEXT NOT NULL,
+       speaker_name TEXT NOT NULL,
+       gender TEXT,
+       accent TEXT,
+       description TEXT,
+       consent_text TEXT NOT NULL,
+       consent_at TEXT NOT NULL,
+       created_at TEXT NOT NULL,
+       updated_at TEXT NOT NULL
+     )`,
+    `CREATE TABLE recordings (
+       id TEXT PRIMARY KEY,
+       voice_project_id TEXT NOT NULL,
+       prompt_id TEXT NOT NULL,
+       style TEXT NOT NULL,
+       text TEXT NOT NULL,
+       file_path TEXT NOT NULL,
+       duration_ms INTEGER NOT NULL,
+       speech_ms INTEGER NOT NULL,
+       sample_rate INTEGER NOT NULL,
+       verdict TEXT NOT NULL,
+       analysis_json TEXT NOT NULL,
+       created_at TEXT NOT NULL,
+       UNIQUE (voice_project_id, prompt_id)
+     )`,
+    `CREATE INDEX idx_recordings_project ON recordings(voice_project_id)`,
+  ],
 ];
 
 let db: DB | null = null;

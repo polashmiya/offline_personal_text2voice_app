@@ -1,0 +1,28 @@
+{
+  "id": "bn-bd-base-medium",
+  "name": "Bangla (Bangladesh)",
+  "description": "Bangladeshi Bengali voice with six speakers. Medium quality, fully offline. English words are read with Bangla pronunciation.",
+  "version": "1.0.0",
+  "locale": "bn-BD",
+  "accent": "Bangladesh (standard)",
+  "quality": "balanced",
+  "maxChunkChars": 180,
+  "noiseScale": 0.667,
+  "noiseScaleW": 0.8,
+  "lengthScale": 1.0,
+  "speakerOrder": ["00737", "03042", "01232", "02194", "00779", "01701"],
+  "speakerLabels": {
+    "00737": { "key": "voice1", "label": "Voice 1" },
+    "03042": { "key": "voice2", "label": "Voice 2" },
+    "01232": { "key": "voice3", "label": "Voice 3" },
+    "02194": { "key": "voice4", "label": "Voice 4" },
+    "00779": { "key": "voice5", "label": "Voice 5" },
+    "01701": { "key": "voice6", "label": "Voice 6" }
+  },
+  "license": {
+    "name": "CC-BY-SA-4.0 (Google bn-BD TTS data, OpenSLR 37) + CMU Indic license; Piper checkpoint by rhasspy",
+    "url": "https://www.openslr.org/37/",
+    "commercialUse": true,
+    "attribution": "Bangla voice: Piper bn_BD (google, medium) by rhasspy, trained on Google's Bengali TTS data (OpenSLR 37, CC BY-SA 4.0) and CMU Indic (Carnegie Mellon University). Credit this when you publish audio."
+  }
+}

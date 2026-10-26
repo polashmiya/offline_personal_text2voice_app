@@ -13,6 +13,7 @@ import type { AppError } from '../../../domain/types';
 import { newId } from '../../../utils/id';
 import { logger } from '../../../services/logging/logger';
 import { loadVoice } from './voiceRuntime';
+import { validateTokens } from '../../../domain/voicepack/tokens';
 
 export type ImportStage = 'copying' | 'extracting' | 'verifying' | 'testing' | 'installing';
 
@@ -79,6 +80,13 @@ async function verifyPackage(dir: string, onStage: (s: ImportStage) => void) {
   for (const folder of [manifest.files.dataDir, manifest.files.dictDir]) {
     if (folder && !payload.some(f => f.rel.startsWith(`${folder}/`))) {
       throw new PackageError(`Missing folder: ${folder}`);
+    }
+  }
+  if (manifest.engine === 'vits') {
+    // The engine exits the process on a malformed tokens file, so check it first.
+    const problem = validateTokens(await FileBridge.readText(`${dir}/${manifest.files.tokens}`));
+    if (problem) {
+      throw new PackageError(problem);
     }
   }
   const totalBytes = payload.reduce((sum, f) => sum + f.size, 0);

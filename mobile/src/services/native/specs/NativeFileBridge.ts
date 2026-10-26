@@ -27,6 +27,18 @@ export type ExtractResult = {
   totalBytes: number;
 };
 
+export type ZipEntry = {
+  /** File inside app storage. */
+  sourcePath: string;
+  /** Path inside the archive (relative, forward slashes). */
+  zipPath: string;
+};
+
+export type ZipResult = {
+  fileCount: number;
+  sizeBytes: number;
+};
+
 export type BuildInfo = {
   versionName: string;
   flavor: string;
@@ -48,6 +60,8 @@ export interface Spec extends TurboModule {
     maxTotalBytes: number,
     maxEntries: number,
   ): Promise<ExtractResult>;
+  /** Writes a zip archive (WAV stored, text deflated) inside app storage. */
+  createZip(entries: Array<ZipEntry>, outputPath: string): Promise<ZipResult>;
   sha256(path: string): Promise<string>;
 
   readText(path: string): Promise<string>;
