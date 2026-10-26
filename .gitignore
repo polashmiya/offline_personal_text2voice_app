@@ -1,0 +1,11 @@
+# Local tooling shims and build logs
+.tools/
+
+# Large binaries are never committed (downloaded / built instead)
+*.voicepack
+*.onnx
+dist/
+mobile/android/app/libs/*.aar
+mobile/android/app/libs/*.part
+mobile/android/lame/.cxx/
+mobile/android/lame/build/
