@@ -1,0 +1,26 @@
+// LAME MP3 encoder (LGPL) as a standalone native library.
+apply plugin: "com.android.library"
+
+android {
+    namespace "com.voicestudio.offline.lame"
+    compileSdk rootProject.ext.compileSdkVersion
+    ndkVersion rootProject.ext.ndkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+        externalNativeBuild {
+            cmake {
+                def archs = findProperty("reactNativeArchitectures")
+                if (archs) {
+                    abiFilters(*archs.split(",").collect { it.trim() })
+                }
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+}

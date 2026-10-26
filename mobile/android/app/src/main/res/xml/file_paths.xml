@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only exported audio is shareable; voice recordings and models are never exposed. -->
+<paths>
+    <files-path name="exports" path="exports/" />
+    <cache-path name="share" path="share/" />
+</paths>

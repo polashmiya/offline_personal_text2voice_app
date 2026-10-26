@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- "standard" flavor: optional in-app model downloads. Generation never uses the network. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>
