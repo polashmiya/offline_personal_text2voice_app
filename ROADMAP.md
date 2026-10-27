@@ -29,6 +29,15 @@ decoder format re-validation + deadline, error codes instead of raw messages in 
 (48 dp chips, announced toasts, localized waveform label). Open: optional model download (deferred),
 device performance/airplane-mode checklist, path checks in AudioTools/VoiceEngine (defense in depth).
 
+**Professional features + full review (2026-10-27):** read-along (sentence highlighting, tap to seek) from an exact
+timing map recorded by the native join (DB v4 `timeline_json`); SRT / WebVTT subtitle export; inline `[pause 1s]`
+markers (+ Insert pause button); share text from other apps / open .txt; background playback with media
+notification, lock-screen controls, audio focus and headphone-unplug pause. Correctness review fixes: recorder
+"Keep" no longer deletes the saved take, engine protected during generation, player cards reclaim the shared
+player, stale state cleared after deletions, foreground-service stop race, byte-safe Bangla file names,
+digit-only text on English voices, cancel during mixing, DB init retry, encoder watchdog, keep-screen-on
+reference counting.
+
 ---
 
 ## A. Changes made to the master prompt (and why)

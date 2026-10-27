@@ -2,6 +2,29 @@ import type { ExportFormat } from '../types';
 
 const INVALID = /[\\/:*?"<>|\u0000-\u001F]/g;
 const MAX_LENGTH = 100;
+/** ext4/f2fs allow 255 bytes per name; Bangla is 3 bytes per character. Leaves room for the extension. */
+const MAX_BYTES = 180;
+
+function utf8Length(s: string): number {
+  let bytes = 0;
+  for (const ch of s) {
+    const c = ch.codePointAt(0) ?? 0;
+    bytes += c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+  }
+  return bytes;
+}
+
+/** Cuts on whole characters so the result is at most maxBytes of UTF-8. */
+export function truncateUtf8(s: string, maxBytes: number): string {
+  let out = '';
+  for (const ch of s) {
+    if (utf8Length(out + ch) > maxBytes) {
+      break;
+    }
+    out += ch;
+  }
+  return out;
+}
 
 /** voice_YYYYMMDD_HHmmss */
 export function defaultFileName(date = new Date()): string {
@@ -18,7 +41,8 @@ export function sanitizeFileName(name: string): string {
     .replace(/\s+/g, ' ')
     .replace(/^[.\s]+|[.\s]+$/g, '')
     .slice(0, MAX_LENGTH);
-  return cleaned || defaultFileName();
+  const fitted = truncateUtf8(cleaned, MAX_BYTES).replace(/[.\s]+$/, '');
+  return fitted || defaultFileName();
 }
 
 export const FORMAT_INFO: Record<

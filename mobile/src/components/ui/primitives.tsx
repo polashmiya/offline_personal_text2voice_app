@@ -295,20 +295,23 @@ export function ToggleRow({
   subtitle,
   value,
   onChange,
+  disabled,
 }: {
   title: string;
   subtitle?: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="switch"
-      accessibilityState={{ checked: value }}
+      accessibilityState={{ checked: value, disabled: !!disabled }}
       accessibilityLabel={title}
+      disabled={disabled}
       onPress={() => onChange(!value)}
-      style={styles.row}>
+      style={[styles.row, disabled && styles.disabled]}>
       <View style={styles.flex}>
         <AppText>{title}</AppText>
         {subtitle ? (
@@ -320,6 +323,7 @@ export function ToggleRow({
       <Switch
         value={value}
         onValueChange={onChange}
+        disabled={disabled}
         trackColor={{ true: colors.accent, false: colors.border }}
         thumbColor={colors.surface}
         importantForAccessibility="no"
@@ -383,6 +387,7 @@ export function ProgressBar({ value, label }: { value: number; label: string }) 
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  disabled: { opacity: 0.5 },
   center: { textAlign: 'center' },
   button: {
     minHeight: MIN_TOUCH,

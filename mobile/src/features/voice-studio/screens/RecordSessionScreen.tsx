@@ -51,7 +51,13 @@ export function RecordSessionScreen({ route, navigation }: Props) {
   const prompts = useMemo(() => promptsFor(style), [style]);
   const [recorded, setRecorded] = useState<Map<string, Recording>>(new Map());
   const [index, setIndex] = useState<number | null>(null);
-  const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
+  const [phase, setPhaseState] = useState<Phase>({ kind: 'idle' });
+  // The ref must change together with the state: handlers that run right after
+  // a setPhase (e.g. keep → goTo → discardUnsaved) read the ref, not the render.
+  const setPhase = (next: Phase) => {
+    phaseRef.current = next;
+    setPhaseState(next);
+  };
   const [level, setLevel] = useState({ levelDb: -96, peakDb: -96, elapsedMs: 0 });
   const [error, setError] = useState<string | null>(null);
   const [micBlocked, setMicBlocked] = useState(false);

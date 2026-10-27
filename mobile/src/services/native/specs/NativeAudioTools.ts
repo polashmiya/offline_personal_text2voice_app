@@ -25,6 +25,9 @@ export type ConcatResult = {
   durationMs: number;
   sampleRate: number;
   peak: number;
+  /** Where each input starts / ends in the output (ms), same order as inputs. */
+  startsMs: Array<number>;
+  endsMs: Array<number>;
 };
 
 export type ExportRequest = {
@@ -103,6 +106,8 @@ export interface Spec extends TurboModule {
   mixAudio(request: MixRequest): Promise<MixResult>;
 
   playerLoad(path: string): Promise<PlayerStatus>;
+  /** Title shown in the media notification and on the lock screen. */
+  playerSetInfo(title: string): void;
   playerPlay(): Promise<void>;
   playerPause(): Promise<void>;
   playerSeek(positionMs: number): Promise<void>;

@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { create } from 'zustand';
 import { AudioTools } from '../../../services/native';
 import { errorCode, logger } from '../../../services/logging/logger';
@@ -9,7 +10,10 @@ type PlayerState = {
   positionMs: number;
   durationMs: number;
   rate: number;
-  load: (path: string) => Promise<boolean>;
+  /** Loads a file into the single native player. title is shown in the media notification. */
+  load: (path: string, title?: string) => Promise<boolean>;
+  /** Re-reads the native state (it can change from the notification / lock screen). */
+  sync: () => Promise<void>;
   toggle: () => Promise<void>;
   pause: () => Promise<void>;
   seek: (ms: number) => Promise<void>;
@@ -53,7 +57,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   positionMs: 0,
   durationMs: 0,
   rate: 1,
-  async load(path) {
+  async load(path, title) {
+    if (title) {
+      AudioTools.playerSetInfo(title);
+    }
     if (get().path === path) {
       return true;
     }
@@ -105,9 +112,34 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     set({ rate });
     await AudioTools.playerSetRate(rate);
   },
+  async sync() {
+    if (!get().path) {
+      return;
+    }
+    try {
+      const status = await AudioTools.playerGetStatus();
+      if (!status.loaded) {
+        set({ path: null, playing: false, positionMs: 0, durationMs: 0 });
+        return;
+      }
+      set({ playing: status.playing, positionMs: status.positionMs, durationMs: status.durationMs });
+      if (status.playing) {
+        startPolling();
+      }
+    } catch {
+      // ignore: the next user action reloads
+    }
+  },
   async unload() {
     stopPolling();
     await AudioTools.playerRelease();
     set({ path: null, playing: false, positionMs: 0, durationMs: 0 });
   },
 }));
+
+// Play/pause from the notification or lock screen happens while the JS side may not poll.
+AppState.addEventListener('change', state => {
+  if (state === 'active') {
+    usePlayer.getState().sync();
+  }
+});

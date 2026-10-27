@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useGeneration } from '../tts/store/generationStore';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -14,6 +15,7 @@ import {
 } from '../../services/db/repositories';
 import { useEditor } from '../tts/store/editorStore';
 import { PlayerCard } from '../audio-studio/player/PlayerCard';
+import { ReadAlong } from '../audio-studio/player/ReadAlong';
 import { usePlayer } from '../audio-studio/player/playerStore';
 import { FileBridge } from '../../services/native';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -102,6 +104,11 @@ export function ProjectsScreen() {
     if (usePlayer.getState().path === g.audioPath) {
       await usePlayer.getState().unload();
     }
+    // Home must not keep showing (and exporting) audio that no longer exists.
+    const last = useGeneration.getState().lastOutcome;
+    if (last?.status === 'completed' && last.generationId === g.id) {
+      useGeneration.getState().clearOutcome();
+    }
     if (g.audioPath) {
       await FileBridge.deletePath(g.audioPath).catch(() => undefined);
     }
@@ -172,7 +179,12 @@ export function ProjectsScreen() {
             <AppText variant="caption" tone="faint">
               {formatDate(g.createdAt, i18n.language)}
             </AppText>
-            {expanded === g.id && g.audioPath ? <PlayerCard path={g.audioPath} /> : null}
+            {expanded === g.id && g.audioPath ? (
+              <>
+                <PlayerCard path={g.audioPath} mediaTitle={g.title} />
+                <ReadAlong path={g.audioPath} text={g.text} timeline={g.timeline} />
+              </>
+            ) : null}
             <View style={styles.actions}>
               <IconButton
                 icon={expanded === g.id ? 'close' : 'play'}

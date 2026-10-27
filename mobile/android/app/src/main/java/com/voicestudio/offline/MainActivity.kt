@@ -1,9 +1,12 @@
 package com.voicestudio.offline
 
+import android.content.Intent
+import android.os.Bundle
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
+import com.voicestudio.offline.files.SharedText
 
 class MainActivity : ReactActivity() {
 
@@ -19,4 +22,16 @@ class MainActivity : ReactActivity() {
    */
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    if (savedInstanceState == null) SharedText.capture(this, intent)
+  }
+
+  /** singleTask: a share while the app is running arrives here. JS picks it up on resume. */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    SharedText.capture(this, intent)
+  }
 }

@@ -95,14 +95,14 @@ export function VoiceOptions({ disabled }: { disabled: boolean }) {
         </View>
       ) : null}
 
-      <View style={[styles.comingSoon, { borderColor: colors.border }]} accessibilityState={{ disabled: true }}>
-        <Icon name="music" size={20} color={colors.textFaint} />
-        <AppText tone="faint" style={styles.flex}>
-          {t('home.backgroundMusic')}
-        </AppText>
-        <AppText variant="caption" tone="faint">
-          {t('common.comingSoon')}
-        </AppText>
+      <View style={[styles.musicHint, { borderColor: colors.border }]}>
+        <Icon name="music" size={20} color={colors.textMuted} />
+        <View style={styles.flex}>
+          <AppText>{t('home.backgroundMusic')}</AppText>
+          <AppText variant="small" tone="muted">
+            {t('home.backgroundMusicHint')}
+          </AppText>
+        </View>
       </View>
     </Card>
   );
@@ -111,7 +111,7 @@ export function VoiceOptions({ disabled }: { disabled: boolean }) {
 const styles = StyleSheet.create({
   group: { gap: spacing.sm },
   flex: { flex: 1 },
-  comingSoon: {
+  musicHint: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,

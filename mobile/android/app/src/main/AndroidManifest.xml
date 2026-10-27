@@ -7,6 +7,7 @@
     -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Personal Voice Studio: recordings stay on the device. -->
@@ -33,12 +34,28 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+        <!-- "Share → Voice Studio" with text or a .txt file, and "Open with" for .txt files. -->
+        <intent-filter>
+            <action android:name="android.intent.action.SEND" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="text/plain" />
+        </intent-filter>
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:scheme="content" android:mimeType="text/plain" />
+        </intent-filter>
       </activity>
 
       <service
         android:name=".engine.GenerationService"
         android:exported="false"
         android:foregroundServiceType="dataSync" />
+      <!-- Media notification / lock-screen controls while listening. -->
+      <service
+        android:name=".audio.PlaybackService"
+        android:exported="false"
+        android:foregroundServiceType="mediaPlayback" />
 
       <provider
         android:name="androidx.core.content.FileProvider"

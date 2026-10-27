@@ -69,6 +69,8 @@ export interface Spec extends TurboModule {
   exists(path: string): Promise<boolean>;
   /** Copies a file bundled in the APK (assets/) into app storage. Resolves the byte count. */
   copyAsset(assetPath: string, destPath: string): Promise<number>;
+  /** Text another app shared into this one since the last call, or null. */
+  takeSharedText(): Promise<string | null>;
   mkdirs(path: string): Promise<void>;
   deletePath(path: string): Promise<void>;
   movePath(from: string, to: string): Promise<void>;

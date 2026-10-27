@@ -1,4 +1,5 @@
 import type { Scalar } from '@op-engineering/op-sqlite';
+import { parseTimeline, type TimedSpan } from '../../domain/timeline/timeline';
 import { nowIso, query, run } from './database';
 import type { PronunciationEntry } from '../../domain/text/pronunciation';
 import type { GenerationStatus, LanguageMode, VoiceProfile } from '../../domain/types';
@@ -148,6 +149,8 @@ export type Generation = {
   totalChunks: number;
   errorCode: string | null;
   metrics: GenerationMetrics | null;
+  /** Sentence timing in the generated audio; empty for older generations. */
+  timeline: TimedSpan[];
   createdAt: string;
   completedAt: string | null;
 };
@@ -181,6 +184,7 @@ const toGeneration = (r: GenerationRow): Generation => ({
   totalChunks: Number(r.total_chunks),
   errorCode: (r.error_code as string) ?? null,
   metrics: r.metrics_json ? (JSON.parse(String(r.metrics_json)) as GenerationMetrics) : null,
+  timeline: parseTimeline(r.timeline_json),
   createdAt: String(r.created_at),
   completedAt: (r.completed_at as string) ?? null,
 });
@@ -197,11 +201,18 @@ export const generationsRepo = {
   async updateProgress(id: string, status: GenerationStatus, progress: number) {
     await run('UPDATE generations SET status = ?, progress = ? WHERE id = ?', [status, progress, id]);
   },
-  async complete(id: string, audioPath: string, durationMs: number, sampleRate: number, metrics: GenerationMetrics) {
+  async complete(
+    id: string,
+    audioPath: string,
+    durationMs: number,
+    sampleRate: number,
+    metrics: GenerationMetrics,
+    timeline: TimedSpan[],
+  ) {
     await run(
       `UPDATE generations SET status = 'completed', progress = 1, audio_path = ?, duration_ms = ?,
-         sample_rate = ?, metrics_json = ?, completed_at = ? WHERE id = ?`,
-      [audioPath, durationMs, sampleRate, JSON.stringify(metrics), nowIso(), id],
+         sample_rate = ?, metrics_json = ?, timeline_json = ?, completed_at = ? WHERE id = ?`,
+      [audioPath, durationMs, sampleRate, JSON.stringify(metrics), JSON.stringify(timeline), nowIso(), id],
     );
   },
   async fail(id: string, status: 'failed' | 'cancelled' | 'interrupted', errorCode: string | null) {

@@ -8,6 +8,7 @@ import { loadVoice, textCapabilities } from '../../model-manager/services/voiceR
 import { newId } from '../../../utils/id';
 import { logger } from '../../../services/logging/logger';
 import { textStats } from '../../../domain/text/estimate';
+import { buildTimeline, type TimedSpan } from '../../../domain/timeline/timeline';
 
 export type GenerationRequest = {
   text: string;
@@ -32,7 +33,15 @@ export type GenerationProgress = {
 };
 
 export type GenerationOutcome =
-  | { status: 'completed'; generationId: string; audioPath: string; durationMs: number }
+  | {
+      status: 'completed';
+      generationId: string;
+      audioPath: string;
+      durationMs: number;
+      /** The generated text and its sentence timing (read-along). */
+      text: string;
+      timeline: TimedSpan[];
+    }
   | { status: 'cancelled' }
   | { status: 'failed'; error: AppError; unsupportedLanguages?: string[] };
 
@@ -67,6 +76,7 @@ export async function runGeneration(
   const finalPath = p.generatedAudio(jobId);
   let rowCreated = false;
   let foreground = false;
+  let screenHeld = false;
 
   try {
     onProgress({ status: 'preparing', progress: 0, currentChunk: 0, totalChunks: 0 });
@@ -121,6 +131,7 @@ export async function runGeneration(
     }
     if (request.keepScreenAwake) {
       FileBridge.keepScreenOn(true);
+      screenHeld = true;
     }
 
     const load = await loadVoice(manifest, request.voice.installPath);
@@ -131,6 +142,7 @@ export async function runGeneration(
     let firstAudioMs = 0;
     let synthesisMs = 0;
     const inputs: Array<{ path: string; pauseAfterMs: number }> = [];
+    const spoken: typeof chunks = [];
 
     onProgress({ status: 'generating', progress: 0, currentChunk: 0, totalChunks: total });
     for (const chunk of chunks) {
@@ -153,6 +165,7 @@ export async function runGeneration(
       }
       synthesisMs += result.elapsedMs;
       inputs.push({ path: outputPath, pauseAfterMs: chunk.pauseAfterMs / request.speed });
+      spoken.push(chunk);
 
       const done = chunk.index + 1;
       const progress = (done / total) * 0.95;
@@ -178,11 +191,17 @@ export async function runGeneration(
     const merged = await AudioTools.concatenateWav({
       inputs,
       outputPath: finalPath,
-      leadingSilenceMs: 150,
+      leadingSilenceMs: 150 + planResult.plan.leadingPauseMs / request.speed,
       trailingSilenceMs: 300,
       normalize: request.normalize,
     });
     const mergeMs = Date.now() - mergeStarted;
+    if (handle.isCancelled) {
+      // Cancel pressed while mixing: honour it, the finished file is discarded.
+      await FileBridge.deletePath(finalPath).catch(() => undefined);
+      await generationsRepo.fail(jobId, 'cancelled', null);
+      return { status: 'cancelled' };
+    }
 
     // Validate before calling it done.
     const info = await AudioTools.getAudioInfo(finalPath);
@@ -198,10 +217,26 @@ export async function runGeneration(
       audioMs: merged.durationMs,
       realTimeFactor: merged.durationMs > 0 ? synthesisMs / merged.durationMs : 0,
     };
-    await generationsRepo.complete(jobId, finalPath, merged.durationMs, merged.sampleRate, metrics);
+    const timeline = buildTimeline(
+      spoken.map((chunk, i) => ({
+        sentenceIndex: chunk.sentenceIndex,
+        sourceStart: chunk.sourceStart,
+        sourceEnd: chunk.sourceEnd,
+        startMs: merged.startsMs[i] ?? 0,
+        endMs: merged.endsMs[i] ?? 0,
+      })),
+    );
+    await generationsRepo.complete(jobId, finalPath, merged.durationMs, merged.sampleRate, metrics, timeline);
     logger.info('generation.completed', { jobId, chunks: total, ...metrics });
     onProgress({ status: 'completed', progress: 1, currentChunk: total, totalChunks: total });
-    return { status: 'completed', generationId: jobId, audioPath: finalPath, durationMs: merged.durationMs };
+    return {
+      status: 'completed',
+      generationId: jobId,
+      audioPath: finalPath,
+      durationMs: merged.durationMs,
+      text: request.text,
+      timeline,
+    };
   } catch (error) {
     const appError = toAppError(error, 'generation_failed');
     logger.error('generation.failed', { jobId, code: appError.code });
@@ -215,7 +250,10 @@ export async function runGeneration(
     if (foreground) {
       await VoiceEngine.stopForegroundWork().catch(() => undefined);
     }
-    FileBridge.keepScreenOn(false);
+    if (screenHeld) {
+      // Reference counted natively: release only our own hold (the recorder may hold one too).
+      FileBridge.keepScreenOn(false);
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useEditor } from '../tts/store/editorStore';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
@@ -51,6 +52,9 @@ export function SettingsScreen() {
     }
     await usePlayer.getState().unload();
     await deleteAllUserData();
+    // Reset in-memory state too, or the draft autosave would write the deleted text/project back.
+    useGeneration.getState().clearOutcome();
+    useEditor.getState().loadDraft({ text: '', projectId: null, title: '' });
     await studioRepo.deleteAll();
     const p = paths();
     await Promise.all([p.generated, p.exports, p.drafts, p.jobs, p.imports, p.studio, p.music, p.mix].map(dir => FileBridge.deletePath(dir).catch(() => undefined)));

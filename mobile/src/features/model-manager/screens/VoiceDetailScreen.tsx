@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useGeneration } from '../../tts/store/generationStore';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -58,6 +59,10 @@ export function VoiceDetailScreen({ route, navigation }: Props) {
   const style = voice.styles.find(s => s.key === styleKey) ?? voice.styles[0];
 
   const runTest = async () => {
+    if (useGeneration.getState().running) {
+      showToast(t('voices.busyGenerating'), 'info');
+      return;
+    }
     if (!manifest) {
       return;
     }
@@ -84,6 +89,10 @@ export function VoiceDetailScreen({ route, navigation }: Props) {
   };
 
   const remove = async () => {
+    if (useGeneration.getState().running) {
+      showToast(t('voices.busyGenerating'), 'info');
+      return;
+    }
     const ok = await confirmDialog({
       title: t('voices.deleteTitle', { name: voice.name }),
       body: t('voices.deleteBody'),

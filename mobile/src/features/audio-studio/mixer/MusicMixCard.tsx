@@ -167,13 +167,14 @@ export function MusicMixCard({ value, onChange, disabled }: Props) {
               options={MUSIC_VOLUMES.map(v => ({ value: v, label: percent(v), disabled }))}
             />
           </Field>
-          <ToggleRow title={t('mixer.loop')} subtitle={t('mixer.loopHint')} value={value.loopMusic} onChange={v => set('loopMusic', v)} />
+          <ToggleRow title={t('mixer.loop')} subtitle={t('mixer.loopHint')} value={value.loopMusic} onChange={v => set('loopMusic', v)} disabled={disabled} />
           <Divider />
           <ToggleRow
             title={t('mixer.autoDuck')}
             subtitle={t('mixer.autoDuckHint')}
             value={value.autoDuck}
             onChange={v => set('autoDuck', v)}
+            disabled={disabled}
           />
           <Field label={t('mixer.fadeIn')}>
             <ChoiceChips

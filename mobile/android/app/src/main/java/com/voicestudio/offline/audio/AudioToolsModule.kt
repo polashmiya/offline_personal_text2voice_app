@@ -2,8 +2,6 @@ package com.voicestudio.offline.audio
 
 import android.media.MediaExtractor
 import android.media.MediaFormat
-import android.media.MediaPlayer
-import android.media.PlaybackParams
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -26,14 +24,10 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
   private val worker: ExecutorService = Executors.newSingleThreadExecutor { r ->
     Thread(r, "audio-tools").apply { priority = Thread.NORM_PRIORITY - 1 }
   }
-  private var player: MediaPlayer? = null
-  private var playerCompleted = false
-  private var playbackRate = 1f
 
   override fun getName() = NAME
 
   override fun invalidate() {
-    releasePlayer()
     worker.shutdownNow()
     super.invalidate()
   }
@@ -144,9 +138,14 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
     // Pass 2: write
     val fadeFrames = (sampleRate * EDGE_FADE_MS / 1000).toInt()
     val temp = File(output.parentFile, "${output.name}.part")
+    // Exact position of every input in the output (frames → ms), for read-along and subtitles.
+    val startsMs = Arguments.createArray()
+    val endsMs = Arguments.createArray()
+    try {
     MonoWavWriter(temp, sampleRate).use { writer ->
       writer.writeSilence((leadingMs * sampleRate / 1000).toLong())
       for (part in parts) {
+        startsMs.pushDouble(writer.framesWritten * 1000.0 / sampleRate)
         MonoWavReader(part.file).use { reader ->
           val total = reader.header.frameCount
           var index = 0L
@@ -165,9 +164,14 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
             index += n
           }
         }
+        endsMs.pushDouble(writer.framesWritten * 1000.0 / sampleRate)
         writer.writeSilence((part.pauseMs * sampleRate / 1000).toLong())
       }
       writer.writeSilence((trailingMs * sampleRate / 1000).toLong())
+    }
+    } catch (e: Exception) {
+      temp.delete() // never leave a half-written .part in files/generated
+      throw e
     }
     if (output.exists()) output.delete()
     if (!temp.renameTo(output)) throw IOException("Could not finalize output")
@@ -178,6 +182,8 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
       putDouble("durationMs", header.durationMs.toDouble())
       putInt("sampleRate", header.sampleRate)
       putDouble("peak", (peak * gain).toDouble())
+      putArray("startsMs", startsMs)
+      putArray("endsMs", endsMs)
     }
   }
 
@@ -310,50 +316,34 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
   }
 
   // ---------------------------------------------------------------- player
+  // The player itself lives in AudioPlayer, shared with the media notification (PlaybackService).
 
   private fun status(): WritableMap {
-    val p = player
+    val st = AudioPlayer.status()
     return Arguments.createMap().apply {
-      putBoolean("loaded", p != null)
-      putBoolean("playing", p?.isPlaying == true)
-      putDouble("positionMs", (p?.currentPosition ?: 0).toDouble())
-      putDouble("durationMs", (p?.duration ?: 0).toDouble())
-      putBoolean("completed", playerCompleted)
+      putBoolean("loaded", st.loaded)
+      putBoolean("playing", st.playing)
+      putDouble("positionMs", st.positionMs.toDouble())
+      putDouble("durationMs", st.durationMs.toDouble())
+      putBoolean("completed", st.completed)
     }
-  }
-
-  private fun releasePlayer() {
-    player?.release()
-    player = null
-    playerCompleted = false
   }
 
   override fun playerLoad(path: String, promise: Promise) {
     try {
-      releasePlayer()
-      val file = File(path)
-      if (!file.isFile) throw InvalidAudioException("Audio file missing")
-      player = MediaPlayer().apply {
-        setDataSource(file.absolutePath)
-        setOnCompletionListener { playerCompleted = true }
-        prepare()
-      }
+      AudioPlayer.load(reactApplicationContext, path)
       promise.resolve(status())
     } catch (e: Exception) {
-      releasePlayer()
+      AudioPlayer.release()
       promise.reject(ErrorCodes.INVALID_AUDIO, e.message, e)
     }
   }
 
+  override fun playerSetInfo(title: String) = AudioPlayer.setTitle(title)
+
   override fun playerPlay(promise: Promise) {
-    val p = player ?: return promise.reject(ErrorCodes.INVALID_AUDIO, "Nothing loaded")
     try {
-      if (playerCompleted) {
-        p.seekTo(0)
-        playerCompleted = false
-      }
-      p.start()
-      applyRate(p)
+      AudioPlayer.play()
       promise.resolve(null)
     } catch (e: Exception) {
       promise.reject(ErrorCodes.INVALID_AUDIO, e.message, e)
@@ -361,32 +351,24 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
   }
 
   override fun playerPause(promise: Promise) {
-    player?.takeIf { it.isPlaying }?.pause()
+    AudioPlayer.pause()
     promise.resolve(null)
   }
 
   override fun playerSeek(positionMs: Double, promise: Promise) {
-    val p = player ?: return promise.resolve(null)
-    val clamped = positionMs.toInt().coerceIn(0, max(0, p.duration))
-    p.seekTo(clamped)
-    if (clamped < p.duration) playerCompleted = false
+    AudioPlayer.seek(positionMs.toInt())
     promise.resolve(null)
   }
 
   override fun playerSetRate(rate: Double, promise: Promise) {
-    playbackRate = rate.toFloat().coerceIn(0.5f, 2f)
-    player?.let { if (it.isPlaying) applyRate(it) }
+    AudioPlayer.setRate(rate.toFloat())
     promise.resolve(null)
-  }
-
-  private fun applyRate(p: MediaPlayer) {
-    p.playbackParams = (p.playbackParams ?: PlaybackParams()).setSpeed(playbackRate)
   }
 
   override fun playerGetStatus(promise: Promise) = promise.resolve(status())
 
   override fun playerRelease(promise: Promise) {
-    releasePlayer()
+    AudioPlayer.release()
     promise.resolve(null)
   }
 

@@ -46,13 +46,15 @@ class VoiceEngineModule(private val context: ReactApplicationContext) :
   private val mainHandler = Handler(Looper.getMainLooper())
   private val cancelFlags = ConcurrentHashMap<String, AtomicBoolean>()
   private val busy = AtomicBoolean(false)
+  /** A generation job is running (between chunks too): never drop the model under it. */
+  @Volatile private var jobActive = false
 
   @Volatile private var tts: OfflineTts? = null
   @Volatile private var loadedVoiceId: String? = null
   @Volatile private var loadedKey: String? = null
 
   private val idleUnload = Runnable {
-    if (!busy.get()) inference.execute { releaseModel("idle") }
+    if (!busy.get() && !jobActive) inference.execute { releaseModel("idle") }
   }
 
   init {
@@ -308,6 +310,8 @@ class VoiceEngineModule(private val context: ReactApplicationContext) :
   }
 
   override fun startForegroundWork(title: String, text: String, promise: Promise) {
+    jobActive = true
+    GenerationService.clearStopRequest()
     try {
       val intent = Intent(context, GenerationService::class.java)
         .setAction(GenerationService.ACTION_START)
@@ -327,7 +331,8 @@ class VoiceEngineModule(private val context: ReactApplicationContext) :
   }
 
   override fun stopForegroundWork(promise: Promise) {
-    context.stopService(Intent(context, GenerationService::class.java))
+    jobActive = false
+    GenerationService.requestStop(context)
     promise.resolve(null)
   }
 
@@ -335,14 +340,14 @@ class VoiceEngineModule(private val context: ReactApplicationContext) :
   override fun onTrimMemory(level: Int) {
     @Suppress("DEPRECATION")
     val critical = level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL
-    if (critical && !busy.get()) inference.execute { releaseModel("memory pressure") }
+    if (critical && !busy.get() && !jobActive) inference.execute { releaseModel("memory pressure") }
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) = Unit
 
   @Deprecated("Deprecated in Java")
   override fun onLowMemory() {
-    if (!busy.get()) inference.execute { releaseModel("low memory") }
+    if (!busy.get() && !jobActive) inference.execute { releaseModel("low memory") }
   }
 
   class EngineException(val code: String, message: String) : Exception(message)

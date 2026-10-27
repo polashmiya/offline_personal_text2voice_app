@@ -10,23 +10,27 @@ The plan is in [`ROADMAP.md`](ROADMAP.md) (12 steps). The current status is list
 
 | Area | State |
 |---|---|
-| Text pipeline: Bangla/English/Banglish segmentation, number/money/date/time/unit reading, acronyms, pronunciation dictionary, chunking | ✅ Built, 85 unit tests |
+| Text pipeline: Bangla/English/Banglish segmentation, number/money/date/time/unit reading, acronyms, pronunciation dictionary, chunking, `[pause 1s]` markers | ✅ Built, unit tested |
 | Offline inference (sherpa-onnx, VITS/Piper/Kokoro/Matcha) on a background thread, cancellable, idle/memory-pressure unload | ✅ Built, tested on an emulator |
 | `.voicepack` import: safe unzip, SHA-256 of every file, schema validation, test-load before install | ✅ Built, tested on an emulator |
 | Generation jobs: real per-chunk progress, cancel, foreground service, crash recovery, output validation | ✅ Built |
-| Player: waveform, seek, ±10 s, restart, playback-speed preview | ✅ Built |
-| Export: WAV, MP3 (LAME), M4A/AAC, FLAC, OGG/Opus (Android 10+); unsupported formats hidden | ✅ Built |
+| Player: waveform, seek, ±10 s, restart, playback speed; background playback with notification + lock-screen controls, audio focus, pauses on headphone unplug | ✅ Built |
+| Read-along: sentence highlighting during playback, tap a sentence to jump there | ✅ Built |
+| Export: WAV, MP3 (LAME), M4A/AAC, FLAC, OGG/Opus (Android 10+); unsupported formats hidden; title/artist tags (WAV, MP3, FLAC) | ✅ Built |
+| Subtitles: SRT / WebVTT with sentence timing (matches the music mix) | ✅ Built |
+| Background music: mixer, loop, fades, trim, padding, auto-duck, limiter, preview; 4 built-in CC0 loops + import your own | ✅ Built |
+| Built-in voices: Norman and John (English, male, public domain) | ✅ Built |
+| Share text from any app into the editor; open .txt files | ✅ Built |
 | Save to user-chosen location (SAF), share (FileProvider) | ✅ Built |
 | Projects, history, search, rename, delete, auto-save, draft restore | ✅ Built |
 | Settings (theme, app language বাংলা/English, defaults, storage, privacy delete-all, licenses) | ✅ Built |
 | Two flavors: `offline` (no INTERNET permission) and `standard` | ✅ Built (downloads not yet built) |
-| Background music, mixer, ducking | ⏳ Roadmap step 9: shown as "Coming soon" |
-| Personal Voice Studio (recording, quality checks) | ⏳ Roadmap step 10: shown as "Coming soon" |
-| Desktop voice training pipeline | ⏳ Roadmap steps 2 and 11 |
+| Personal Voice Studio (consent, recording, per-take quality checks, dataset export) | ✅ Built |
+| Desktop voice training pipeline (`tools/voice-training`, Colab notebook) | ✅ Built |
 | Own Bangladeshi Bengali base voice with clear commercial license | ⏳ Roadmap step 2: see "Known limitations" |
 | In-app model download (`standard` flavor) | ⏳ Roadmap step 12 |
 
-Nothing in the UI fakes work: unfinished features say **Coming soon** and are not clickable.
+Nothing in the UI fakes work: anything unfinished is hidden or clearly marked.
 
 ## Repository layout
 
@@ -39,7 +43,8 @@ mobile/                 React Native app (TypeScript strict)
   android/lame/         LAME 3.100 (LGPL) MP3 encoder as a separate .so
 tools/voice-package/    make-voicepack.mjs: build a .voicepack from a sherpa-onnx model folder
 models/voices/          voice configs (metadata only; no binaries in git)
-docs/                   architecture, voice packages, privacy, build, licenses, troubleshooting
+docs/                   architecture, audio pipeline, voice packages, privacy, build, licenses
+tools/music/            generate-music.mjs: the built-in CC0 music loops
 ```
 
 ## Requirements
@@ -78,7 +83,8 @@ The format is described in [docs/voice-packages.md](docs/voice-packages.md).
 - **No commercially-cleared Bangladeshi Bengali voice is bundled yet.** The development voice (Mimic 3 Bengali, trained on OpenSLR 37 + CMU Indic) works offline. Its model-weight license is not stated, so it is marked *not cleared for commercial use*. Training our own base voice is roadmap step 2.
 - English inside Bangla text is read with Bangla pronunciation by Bengali voices. Common tech words use a curated lexicon. Other words use spelling rules, which give an approximate result; the pronunciation dictionary fixes any word.
 - Roman-Banglish detection is conservative. Choose the **Banglish (Roman)** language option to force conversion.
-- Export metadata tags (title/artist) are not written yet.
+- M4A and OGG exports carry no title/artist tags (Android's MediaMuxer cannot write them); the app says so.
+- Subtitles are timed per sentence, not per word.
 - Pitch control is hidden because no current voice supports it properly.
 
 ## Licensing

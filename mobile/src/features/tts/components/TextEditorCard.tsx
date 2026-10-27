@@ -4,7 +4,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useTranslation } from 'react-i18next';
 import { useEditor } from '../store/editorStore';
 import { useTheme } from '../../../theme/ThemeProvider';
-import { AppText, Card, IconButton } from '../../../components/ui/primitives';
+import { AppText, Button, Card, IconButton } from '../../../components/ui/primitives';
 import { confirmDialog, showToast } from '../../../components/ui/overlays';
 import { textStats } from '../../../domain/text/estimate';
 import { formatClock } from '../../../utils/format';
@@ -28,6 +28,8 @@ export function TextEditorCard({ editable }: { editable: boolean }) {
   const { setText, undo, redo } = useEditor.getState();
   const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [selection, setSelection] = useState<{ start: number; end: number } | undefined>();
+  /** Last known cursor, so "Insert pause" lands where the user is typing. */
+  const cursor = useRef({ start: 0, end: 0 });
 
   const stats = useMemo(() => textStats(text, speed), [text, speed]);
 
@@ -68,6 +70,24 @@ export function TextEditorCard({ editable }: { editable: boolean }) {
     }
   };
 
+  /** Inserts a [pause 1s] marker at the cursor (or replaces the selection). Never spoken; it becomes silence. */
+  const insertPause = () => {
+    const { start, end } = cursor.current;
+    const at = Math.min(start, text.length);
+    const to = Math.min(Math.max(end, at), text.length);
+    const before = text.slice(0, at);
+    const after = text.slice(to);
+    const marker = '[pause 1s]';
+    const left = before && !/\s$/.test(before) ? ' ' : '';
+    const right = after && !/^\s/.test(after) ? ' ' : '';
+    const next = before + left + marker + right + after;
+    setText(next.slice(0, MAX_CHARS), { checkpoint: true });
+    const caret = (before + left + marker + right).length;
+    cursor.current = { start: caret, end: caret };
+    inputRef.current?.focus();
+    setSelection({ start: caret, end: caret });
+  };
+
   const selectAll = () => {
     inputRef.current?.focus();
     setSelection({ start: 0, end: text.length });
@@ -83,7 +103,12 @@ export function TextEditorCard({ editable }: { editable: boolean }) {
         multiline
         maxLength={MAX_CHARS}
         selection={selection}
-        onSelectionChange={() => selection && setSelection(undefined)}
+        onSelectionChange={e => {
+          cursor.current = e.nativeEvent.selection;
+          if (selection) {
+            setSelection(undefined);
+          }
+        }}
         placeholder={t('home.placeholder')}
         placeholderTextColor={colors.textFaint}
         accessibilityLabel={t('home.title')}
@@ -97,6 +122,12 @@ export function TextEditorCard({ editable }: { editable: boolean }) {
           duration: formatClock(stats.estimatedSeconds * 1000),
         })}
       </AppText>
+      <View style={styles.pauseRow}>
+        <Button compact kind="ghost" icon="plus" label={t('home.insertPause')} onPress={insertPause} disabled={!editable} />
+        <AppText variant="caption" tone="faint" style={styles.flex}>
+          {t('home.pauseHint')}
+        </AppText>
+      </View>
       <View style={styles.toolbar}>
         <IconButton icon="paste" label={t('home.paste')} onPress={paste} disabled={!editable} />
         <IconButton icon="fileText" label={t('home.importText')} onPress={importText} disabled={!editable} />
@@ -113,4 +144,6 @@ const styles = StyleSheet.create({
   card: { padding: spacing.md },
   input: { minHeight: 180, maxHeight: 420, borderRadius: radius.md, padding: spacing.md },
   toolbar: { flexDirection: 'row', justifyContent: 'space-between' },
+  pauseRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  flex: { flex: 1 },
 });

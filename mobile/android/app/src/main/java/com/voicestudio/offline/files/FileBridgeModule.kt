@@ -321,6 +321,9 @@ class FileBridgeModule(private val context: ReactApplicationContext) :
 
   override fun exists(path: String, promise: Promise) = async(promise) { safeFile(path).exists() }
 
+  /** Text shared into the app since the last call (see SharedText), or null. */
+  override fun takeSharedText(promise: Promise) = promise.resolve(SharedText.take())
+
   /** Copies a file bundled in the APK's assets/ (e.g. "music/calm-ambient.wav") into app storage, atomically. */
   override fun copyAsset(assetPath: String, destPath: String, promise: Promise) = async(promise) {
     if (assetPath.isBlank() || assetPath.startsWith("/") || assetPath.contains("..") || assetPath.contains('\\')) {
@@ -399,10 +402,14 @@ class FileBridgeModule(private val context: ReactApplicationContext) :
     StatFs(context.filesDir.absolutePath).availableBytes.toDouble()
   }
 
+  /** Reference counted: generation and the recorder can both hold the screen on. */
+  private var screenOnHolds = 0
+
   override fun keepScreenOn(enabled: Boolean) {
     val activity = context.currentActivity ?: return
     UiThreadUtil.runOnUiThread {
-      if (enabled) {
+      screenOnHolds = if (enabled) screenOnHolds + 1 else maxOf(0, screenOnHolds - 1)
+      if (screenOnHolds > 0) {
         activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
       } else {
         activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

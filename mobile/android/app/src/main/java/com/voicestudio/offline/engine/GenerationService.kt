@@ -40,6 +40,13 @@ class GenerationService : Service() {
       0
     }
     ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
+    if (stopRequested) {
+      // The job ended before the service got here. Android requires startForeground first;
+      // stopping now is safe and avoids the "did not call startForeground" crash.
+      stopRequested = false
+      stopSelf()
+      return START_NOT_STICKY
+    }
     if (wakeLock == null) {
       val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
       wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "VoiceStudio:generation").apply {
@@ -66,6 +73,22 @@ class GenerationService : Service() {
     private const val MAX_WAKE_MS = 2 * 60 * 60 * 1000L
 
     @Volatile private var instance: GenerationService? = null
+
+    /** Set when a stop arrives before onStartCommand ran (see [requestStop]). */
+    @Volatile private var stopRequested = false
+
+    fun clearStopRequest() {
+      stopRequested = false
+    }
+
+    /** Stops the service safely, even if it was started a moment ago and is not foreground yet. */
+    fun requestStop(context: Context) {
+      if (instance != null) {
+        context.stopService(Intent(context, GenerationService::class.java))
+      } else {
+        stopRequested = true
+      }
+    }
     @Volatile private var currentTitle: String = ""
 
     fun update(text: String, progress: Int) {

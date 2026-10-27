@@ -28,6 +28,7 @@ object AudioEncoder {
 
   private val OPUS_RATES = intArrayOf(8000, 12000, 16000, 24000, 48000)
   private const val TIMEOUT_US = 10_000L
+  private const val STALL_TIMEOUT_MS = 30_000L
 
   fun hasEncoder(mime: String): Boolean =
     MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
@@ -117,8 +118,11 @@ object AudioEncoder {
       return n >= 0
     }
     var moreInput = refill()
+    // Watchdog: a codec that stops producing output (never reaches EOS) must not hang the export.
+    var lastProgress = System.currentTimeMillis()
 
     while (true) {
+      if (System.currentTimeMillis() - lastProgress > STALL_TIMEOUT_MS) throw IOException("Encoder stalled")
       if (!inputDone) {
         val index = codec.dequeueInputBuffer(TIMEOUT_US)
         if (index >= 0) {
@@ -142,6 +146,7 @@ object AudioEncoder {
           framesQueued += bytes / 2
           val finished = !moreInput && pendingOffset >= pending.size
           codec.queueInputBuffer(index, 0, bytes, ptsUs, if (finished) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0)
+          lastProgress = System.currentTimeMillis()
           if (finished) inputDone = true
         }
       }
@@ -161,6 +166,7 @@ object AudioEncoder {
             }
           }
           codec.releaseOutputBuffer(outIndex, false)
+          lastProgress = System.currentTimeMillis()
           if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) return
         }
       }

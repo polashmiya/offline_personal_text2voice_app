@@ -66,18 +66,40 @@ function Waveform({
   );
 }
 
-export function PlayerCard({ path, title }: { path: string; title?: string }) {
+export function PlayerCard({
+  path,
+  title,
+  mediaTitle,
+}: {
+  path: string;
+  /** Shown above the waveform. */
+  title?: string;
+  /** Shown in the media notification / lock screen (defaults to title). */
+  mediaTitle?: string;
+}) {
   const { t } = useTranslation();
   const player = usePlayer();
   const isCurrent = player.path === path;
 
+  const notificationTitle = mediaTitle || title || t('player.nowPlaying');
   useEffect(() => {
-    player.load(path);
+    player.load(path, notificationTitle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path]);
 
   const progress = isCurrent && player.durationMs > 0 ? player.positionMs / player.durationMs : 0;
-  const seekFraction = (f: number) => player.seek(f * player.durationMs);
+
+  /**
+   * There is one native player for the whole app. If another screen used it
+   * since this card loaded, take it back for this file before acting.
+   */
+  const withPlayer = (action: (p: ReturnType<typeof usePlayer.getState>) => Promise<void>) => async () => {
+    if (usePlayer.getState().path !== path && !(await usePlayer.getState().load(path, notificationTitle))) {
+      return;
+    }
+    await action(usePlayer.getState());
+  };
+  const seekFraction = (f: number) => withPlayer(p => p.seek(f * p.durationMs))();
 
   return (
     <Card>
@@ -96,17 +118,16 @@ export function PlayerCard({ path, title }: { path: string; title?: string }) {
         </AppText>
       </View>
       <View style={styles.controls}>
-        <IconButton icon="restart" label={t('player.restart')} onPress={player.restart} disabled={!isCurrent} />
-        <IconButton icon="back" label={t('player.back10')} onPress={() => player.skip(-10000)} disabled={!isCurrent} />
+        <IconButton icon="restart" label={t('player.restart')} onPress={withPlayer(p => p.restart())} />
+        <IconButton icon="back" label={t('player.back10')} onPress={withPlayer(p => p.skip(-10000))} />
         <IconButton
           icon={player.playing && isCurrent ? 'pause' : 'play'}
           label={player.playing && isCurrent ? t('player.pause') : t('player.play')}
-          onPress={player.toggle}
-          disabled={!isCurrent}
+          onPress={withPlayer(p => p.toggle())}
           filled
           size={28}
         />
-        <IconButton icon="forward" label={t('player.forward10')} onPress={() => player.skip(10000)} disabled={!isCurrent} />
+        <IconButton icon="forward" label={t('player.forward10')} onPress={withPlayer(p => p.skip(10000))} />
       </View>
       <ChoiceChips
         label={t('player.previewSpeed')}

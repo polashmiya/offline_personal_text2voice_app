@@ -47,7 +47,8 @@ object AudioDecoder {
       codec.configure(format, null, null, 0)
       codec.start()
 
-      val maxFrames = maxDurationMs * sampleRate / 1000
+      // Recomputed when the codec reports its real output rate (e.g. HE-AAC doubles it).
+      var maxFrames = maxDurationMs * sampleRate / 1000
       // Generous: decoding runs far faster than real time; this only stops a stuck codec.
       val deadline = System.currentTimeMillis() + maxOf(60_000L, maxDurationMs / 2)
       val info = MediaCodec.BufferInfo()
@@ -81,6 +82,7 @@ object AudioDecoder {
           // The WAV header is fixed once writing starts; a mid-stream rate change would play at the wrong pitch.
           if (writer != null && newRate != sampleRate) throw InvalidAudioException("Sample rate changed mid-stream")
           sampleRate = newRate
+          if (writer == null) maxFrames = maxDurationMs * sampleRate / 1000
           floatPcm = out.containsKey(MediaFormat.KEY_PCM_ENCODING) &&
             out.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT
           continue

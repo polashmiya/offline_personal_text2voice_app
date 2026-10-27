@@ -23,6 +23,11 @@ export async function bootstrap(): Promise<BootResult> {
   // Temp folders a crash can leave behind: picked files, half-validated packages, shared datasets, mixes.
   const p = paths();
   await Promise.all([p.imports, p.staging, p.share, p.mix].map(dir => FileBridge.deletePath(dir).catch(() => undefined)));
+  // Voice-test clips are played once and never needed again.
+  const cacheFiles = await FileBridge.listDir(p.cacheDir).catch(() => []);
+  await Promise.all(
+    cacheFiles.filter(f => f.name.startsWith('voice-test-')).map(f => FileBridge.deletePath(f.path).catch(() => undefined)),
+  );
   // Older builds kept voice dataset zips (recordings + consent) in exports/.
   if (await FileBridge.exists(p.exports)) {
     const stale = (await FileBridge.listDir(p.exports)).filter(f => f.name.startsWith('ds_'));

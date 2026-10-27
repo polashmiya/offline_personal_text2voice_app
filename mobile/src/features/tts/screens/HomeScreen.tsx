@@ -12,6 +12,7 @@ import { useGeneration } from '../store/generationStore';
 import { useVoices } from '../../../store/voicesStore';
 import { usePreferences } from '../../../store/preferencesStore';
 import { PlayerCard } from '../../audio-studio/player/PlayerCard';
+import { ReadAlong } from '../../audio-studio/player/ReadAlong';
 import { useErrorText } from '../../../components/common/useErrorText';
 import { localizeDigits } from '../../../i18n';
 import { projectsRepo } from '../../../services/db/repositories';
@@ -145,6 +146,7 @@ export function HomeScreen() {
         <View style={styles.result}>
           <AppText variant="heading">{t('home.ready')}</AppText>
           <PlayerCard path={lastOutcome.audioPath} />
+          <ReadAlong path={lastOutcome.audioPath} text={lastOutcome.text} timeline={lastOutcome.timeline} />
           <Button
             icon="download"
             label={t('common.export')}

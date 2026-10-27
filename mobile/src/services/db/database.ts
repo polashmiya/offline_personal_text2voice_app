@@ -117,6 +117,8 @@ const MIGRATIONS: string[][] = [
        created_at TEXT NOT NULL
      )`,
   ],
+  // v4 — timing map of each generation (read-along highlighting, subtitles)
+  [`ALTER TABLE generations ADD COLUMN timeline_json TEXT`],
 ];
 
 let db: DB | null = null;
@@ -145,7 +147,11 @@ export function initDatabase(): Promise<void> {
       await db!.execute('PRAGMA journal_mode = WAL');
       await db!.execute('PRAGMA foreign_keys = ON');
       await migrate(db!);
-    })();
+    })().catch(error => {
+      // Let the boot screen's Retry actually retry instead of reusing a rejected promise.
+      ready = null;
+      throw error;
+    });
   }
   return ready;
 }

@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../../navigation/types';
 import { Screen } from '../../../components/layout/Screen';
-import { AppText, Banner, Button, Card, ChoiceChips, TextField } from '../../../components/ui/primitives';
+import { AppText, Banner, Button, Card, ChoiceChips, EmptyState, TextField } from '../../../components/ui/primitives';
 import { showToast } from '../../../components/ui/overlays';
 import { AudioTools, FileBridge } from '../../../services/native';
 import { exportsRepo, generationsRepo, musicRepo, type Generation } from '../../../services/db/repositories';
 import {
   BITRATES,
   defaultFileName,
+  sanitizeFileName,
   estimateSize,
   FORMAT_INFO,
   withExtension,
@@ -34,6 +35,7 @@ import {
   type MixSettings,
 } from '../../../domain/audio/mix';
 import { AppException } from '../../../services/native/errors';
+import { shiftTimeline, toSrt, toVtt } from '../../../domain/timeline/timeline';
 import { MusicMixCard } from '../mixer/MusicMixCard';
 import { PlayerCard } from '../player/PlayerCard';
 import { usePlayer } from '../player/playerStore';
@@ -43,7 +45,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Export'>;
 
 const SAMPLE_RATES = [0, 22050, 44100, 48000];
 
-export function ExportScreen({ route }: Props) {
+export function ExportScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const errorText = useErrorText();
   const prefs = usePreferences();
@@ -57,16 +59,23 @@ export function ExportScreen({ route }: Props) {
   const [tagArtist, setTagArtist] = useState(prefs.exportArtist);
   // Trim is specific to one recording, so it is never carried over.
   const [mix, setMix] = useState<MixSettings>(() => ({ ...prefs.mixSettings, trimStartMs: 0, trimEndMs: 0 }));
-  const [busy, setBusy] = useState<'save' | 'share' | 'preview' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'share' | 'preview' | 'subtitles' | null>(null);
+  const [subtitleFormat, setSubtitleFormat] = useState<'srt' | 'vtt'>('srt');
   const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
   const previewRef = useRef<string | null>(null);
+  const mounted = useRef(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    generationsRepo.get(route.params.generationId).then(g => {
-      setGeneration(g);
-      setTagTitle(g?.title ?? '');
-    });
+    generationsRepo
+      .get(route.params.generationId)
+      .then(g => {
+        setGeneration(g);
+        setTagTitle(g?.title ?? '');
+        setMissing(!g?.audioPath);
+      })
+      .catch(() => setMissing(true));
     AudioTools.getSupportedExportFormats().then(list => {
       const supported = list.filter((f): f is ExportFormat => f in FORMAT_INFO);
       setFormats(supported);
@@ -89,6 +98,7 @@ export function ExportScreen({ route }: Props) {
   // Previews are temporary: drop them when leaving the screen.
   useEffect(
     () => () => {
+      mounted.current = false;
       discardPreview();
     },
     [],
@@ -138,12 +148,51 @@ export function ExportScreen({ route }: Props) {
     return result.outputPath;
   };
 
+  /** Writes subtitles for the audio as it will be exported (mix padding/trim applied). */
+  const saveSubtitles = async () => {
+    if (!generation || generation.timeline.length === 0) {
+      return;
+    }
+    setBusy('subtitles');
+    setError(null);
+    const fileName = `${sanitizeFileName(name).replace(/\.(wav|mp3|m4a|flac|ogg|opus)$/i, '')}.${subtitleFormat}`;
+    // Short internal name: long Bangla names exceed the 255-byte file name limit; fileName is used when saving.
+    const temp = `${paths().exports}/${newId('sub_')}.${subtitleFormat}`;
+    try {
+      const offset = mixing ? mix.padStartMs - mix.trimStartMs : 0;
+      const spans = shiftTimeline(generation.timeline, offset, mixing ? finalMs : voiceMs);
+      const body = subtitleFormat === 'srt' ? toSrt(generation.text, spans) : toVtt(generation.text, spans);
+      await FileBridge.mkdirs(paths().exports);
+      await FileBridge.writeTextAtomic(temp, body);
+      const uri = await FileBridge.saveToUserLocation(
+        temp,
+        fileName,
+        subtitleFormat === 'srt' ? 'application/x-subrip' : 'text/vtt',
+      );
+      if (uri) {
+        showToast(t('export.subtitlesSaved'), 'success');
+      }
+    } catch (e) {
+      setError(errorText(toAppError(e, 'export_failed')));
+    } finally {
+      FileBridge.deletePath(temp).catch(() => undefined);
+      setBusy(null);
+    }
+  };
+
   const preview = async () => {
     setBusy('preview');
     setError(null);
     try {
       await discardPreview();
       const path = await renderMix(`${paths().mix}/${newId('preview_')}.wav`);
+      if (!mounted.current) {
+        // Left the screen while it rendered: nothing will play it.
+        if (path) {
+          FileBridge.deletePath(path).catch(() => undefined);
+        }
+        return;
+      }
       previewRef.current = path;
       setPreviewPath(path);
     } catch (e) {
@@ -153,13 +202,15 @@ export function ExportScreen({ route }: Props) {
     }
   };
 
-  const runExport = async (): Promise<{ path: string; fileName: string } | null> => {
+  const runExport = async (): Promise<{ path: string; fileName: string; dir: string } | null> => {
     if (!generation?.audioPath) {
       return null;
     }
     const fileName = withExtension(name, format);
-    const outputPath = `${paths().exports}/${newId('exp_')}_${fileName}`;
-    await FileBridge.mkdirs(paths().exports);
+    // One folder per export keeps the user's file name (shown by apps it is shared to) without clashes.
+    const exportDir = `${paths().exports}/${newId('exp_')}`;
+    const outputPath = `${exportDir}/${fileName}`;
+    await FileBridge.mkdirs(exportDir);
     const mixPath = await renderMix(`${paths().mix}/${newId('mix_')}.wav`);
     let result;
     try {
@@ -188,7 +239,7 @@ export function ExportScreen({ route }: Props) {
       sizeBytes: result.sizeBytes,
     });
     logger.info('export.done', { format, bytes: result.sizeBytes, mixed: !!mixPath });
-    return { path: result.outputPath, fileName };
+    return { path: result.outputPath, fileName, dir: exportDir };
   };
 
   const act = async (kind: 'save' | 'share') => {
@@ -197,7 +248,7 @@ export function ExportScreen({ route }: Props) {
     }
     setBusy(kind);
     setError(null);
-    let exported: { path: string; fileName: string } | null = null;
+    let exported: { path: string; fileName: string; dir: string } | null = null;
     try {
       exported = await runExport();
       if (!exported) {
@@ -223,12 +274,20 @@ export function ExportScreen({ route }: Props) {
     } finally {
       // The saved copy now lives where the user chose; keep shared files until the next cleanup.
       if (exported && kind === 'save') {
-        FileBridge.deletePath(exported.path).catch(() => undefined);
+        FileBridge.deletePath(exported.dir).catch(() => undefined);
       }
       setBusy(null);
     }
   };
 
+  if (missing) {
+    return (
+      <Screen topInset={false}>
+        <EmptyState icon="alert" title={t('export.missingTitle')} body={t('export.missingBody')} />
+        <Button kind="secondary" label={t('common.close')} onPress={() => navigation.goBack()} />
+      </Screen>
+    );
+  }
   if (!generation) {
     return <Screen topInset={false}>{null}</Screen>;
   }
@@ -345,6 +404,32 @@ export function ExportScreen({ route }: Props) {
         disabled={exportDisabled}
         onPress={() => act('share')}
       />
+
+      {generation.timeline.length > 0 ? (
+        <Card>
+          <AppText variant="heading">{t('export.subtitles')}</AppText>
+          <AppText variant="small" tone="muted">
+            {t('export.subtitlesHint')}
+          </AppText>
+          <ChoiceChips
+            label={t('export.subtitles')}
+            value={subtitleFormat}
+            onChange={setSubtitleFormat}
+            options={[
+              { value: 'srt', label: 'SRT' },
+              { value: 'vtt', label: 'WebVTT' },
+            ]}
+          />
+          <Button
+            kind="secondary"
+            icon="fileText"
+            label={t('export.saveSubtitles')}
+            loading={busy === 'subtitles'}
+            disabled={!!busy || tooMuchTrim}
+            onPress={saveSubtitles}
+          />
+        </Card>
+      ) : null}
     </Screen>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useGeneration } from '../../tts/store/generationStore';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
@@ -58,6 +59,10 @@ export function VoicesScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const runImport = async () => {
+    if (useGeneration.getState().running) {
+      showToast(t('voices.busyGenerating'), 'info');
+      return;
+    }
     setError(null);
     const result = await importVoicePack(setStage, ({ current, incoming }) =>
       confirmDialog({

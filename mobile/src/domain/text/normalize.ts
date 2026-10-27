@@ -129,6 +129,11 @@ function readMoney(amount: string, code: string, lang: Lang): string {
   const currency = CURRENCIES[code];
   const value = ascii(amount);
   const [intPart, fracPart = ''] = value.split('.');
+  // Beyond ~15 digits a JS number is no longer exact: read the amount digit by digit, like readNumber.
+  if (intPart.length > 12) {
+    const unit = lang === 'bn' ? currency.bn[0] : currency.en[1];
+    return `${lang === 'bn' ? bengaliDigits(intPart) : englishDigits(intPart)} ${unit}`;
+  }
   const major = Number(intPart);
   const minor = fracPart ? Number(fracPart.padEnd(2, '0').slice(0, 2)) : 0;
   if (lang === 'bn') {
