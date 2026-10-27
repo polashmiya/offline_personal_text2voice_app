@@ -11,6 +11,7 @@ import type { ExportFormat, LanguageMode } from '../../domain/types';
 import { BITRATES, FORMAT_INFO } from '../../domain/export/fileName';
 import { FileBridge } from '../../services/native';
 import { deleteAllUserData } from '../../services/db/repositories';
+import { ensureBundledMusic } from '../audio-studio/music/bundledMusic';
 import { studioRepo } from '../voice-studio/services/studioRepo';
 import { paths } from '../../services/storage/paths';
 import { usePlayer } from '../audio-studio/player/playerStore';
@@ -53,6 +54,7 @@ export function SettingsScreen() {
     await studioRepo.deleteAll();
     const p = paths();
     await Promise.all([p.generated, p.exports, p.drafts, p.jobs, p.imports, p.studio, p.music, p.mix].map(dir => FileBridge.deletePath(dir).catch(() => undefined)));
+    await ensureBundledMusic();
     showToast(t('settings.deleted'), 'success');
   };
 

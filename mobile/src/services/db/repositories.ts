@@ -341,7 +341,7 @@ const toTrack = (r: MusicRow): MusicTrack => ({
 
 export const musicRepo = {
   async list(): Promise<MusicTrack[]> {
-    const rows = await query<MusicRow>('SELECT * FROM music_tracks ORDER BY created_at DESC');
+    const rows = await query<MusicRow>("SELECT * FROM music_tracks ORDER BY source = 'bundled' DESC, created_at DESC");
     return rows.map(toTrack);
   },
   async get(id: string): Promise<MusicTrack | null> {
@@ -352,6 +352,16 @@ export const musicRepo = {
     await run(
       `INSERT INTO music_tracks (id, name, file_path, duration_ms, sample_rate, source, license, attribution, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [t.id, t.name, t.filePath, t.durationMs, t.sampleRate, t.source, t.license, t.attribution, nowIso()],
+    );
+  },
+  async upsert(t: MusicTrack) {
+    await run(
+      `INSERT INTO music_tracks (id, name, file_path, duration_ms, sample_rate, source, license, attribution, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, file_path = excluded.file_path,
+         duration_ms = excluded.duration_ms, sample_rate = excluded.sample_rate, source = excluded.source,
+         license = excluded.license, attribution = excluded.attribution`,
       [t.id, t.name, t.filePath, t.durationMs, t.sampleRate, t.source, t.license, t.attribution, nowIso()],
     );
   },

@@ -1,0 +1,52 @@
+{
+  "formatVersion": 1,
+  "id": "en-piper-norman-medium",
+  "name": "Norman — Tech Narrator (English, male)",
+  "description": "Clear US English male voice, well suited to tech explainers and tutorials. Built in, INT8, fully offline.",
+  "version": "1.0.0-int8",
+  "engine": "vits",
+  "languages": [
+    "en"
+  ],
+  "languageHandling": {
+    "en": "native"
+  },
+  "locale": "en-US",
+  "gender": "male",
+  "quality": "fast",
+  "sampleRate": 22050,
+  "maxChunkChars": 220,
+  "personal": false,
+  "files": {
+    "model": "model/en_US-norman-medium.onnx",
+    "tokens": "model/tokens.txt",
+    "dataDir": "model/espeak-ng-data"
+  },
+  "speakers": [
+    {
+      "id": 0,
+      "key": "default",
+      "label": "Narrator"
+    }
+  ],
+  "defaults": {
+    "noiseScale": 0.667,
+    "noiseScaleW": 0.8,
+    "lengthScale": 1
+  },
+  "supports": {
+    "speed": true,
+    "pitch": false
+  },
+  "license": {
+    "name": "Dataset public domain (LibriVox); Piper model by Bryce Beattie, public domain; espeak-ng-data GPL-3.0",
+    "url": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/norman/medium",
+    "commercialUse": true,
+    "attribution": "Piper voice en_US-norman-medium by Bryce Beattie (trained from scratch), LibriVox public-domain recordings. INT8 conversion by sherpa-onnx."
+  },
+  "include": {
+    "model/en_US-norman-medium.onnx": "en_US-norman-medium.onnx",
+    "model/tokens.txt": "tokens.txt",
+    "model/espeak-ng-data": "espeak-ng-data"
+  }
+}

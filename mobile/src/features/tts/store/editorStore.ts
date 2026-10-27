@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { LanguageMode } from '../../../domain/types';
 import { FileBridge } from '../../../services/native';
 import { paths } from '../../../services/storage/paths';
-import { logger } from '../../../services/logging/logger';
+import { errorCode, logger } from '../../../services/logging/logger';
 
 const UNDO_LIMIT = 50;
 
@@ -105,7 +105,7 @@ export async function readDraft(): Promise<Partial<EditorDraft> | null> {
     const raw = JSON.parse(await FileBridge.readText(draftPath())) as Partial<EditorDraft>;
     return typeof raw.text === 'string' ? raw : null;
   } catch (e) {
-    logger.warn('draft.read_failed', { msg: String(e) });
+    logger.warn('draft.read_failed', { code: errorCode(e) });
     return null;
   }
 }

@@ -21,3 +21,15 @@ export const logger = {
   warn: (event: string, fields?: Fields) => emit('warn', event, fields),
   error: (event: string, fields?: Fields) => emit('error', event, fields),
 };
+
+/**
+ * A loggable category for any thrown value. Raw exception messages can carry
+ * absolute file paths, so only the native error code / error name is kept.
+ */
+export function errorCode(e: unknown): string {
+  const code = (e as { code?: unknown } | null)?.code;
+  if (typeof code === 'string' && /^[a-z_]{1,40}$/i.test(code)) {
+    return code;
+  }
+  return e instanceof Error ? e.name : typeof e;
+}

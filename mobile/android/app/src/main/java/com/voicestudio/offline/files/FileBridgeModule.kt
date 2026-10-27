@@ -74,11 +74,19 @@ class FileBridgeModule(private val context: ReactApplicationContext) :
   /** Only paths inside this app's private storage may be touched from JS. */
   private fun safeFile(path: String): File {
     val file = File(path).canonicalFile
-    val roots = listOfNotNull(context.filesDir, context.cacheDir, context.getExternalFilesDir(null))
-      .map { it.canonicalFile.path }
-    if (roots.none { file.path == it || file.path.startsWith(it + File.separator) }) {
+    if (storageRoots().none { file.path == it || file.path.startsWith(it + File.separator) }) {
       throw SecurityException("Path outside app storage")
     }
+    return file
+  }
+
+  private fun storageRoots(): List<String> =
+    listOfNotNull(context.filesDir, context.cacheDir, context.getExternalFilesDir(null)).map { it.canonicalFile.path }
+
+  /** Like [safeFile], but never a storage root itself (for delete/move). */
+  private fun safeChild(path: String): File {
+    val file = safeFile(path)
+    if (file.path in storageRoots()) throw SecurityException("Refusing to modify a storage root")
     return file
   }
 
@@ -313,6 +321,28 @@ class FileBridgeModule(private val context: ReactApplicationContext) :
 
   override fun exists(path: String, promise: Promise) = async(promise) { safeFile(path).exists() }
 
+  /** Copies a file bundled in the APK's assets/ (e.g. "music/calm-ambient.wav") into app storage, atomically. */
+  override fun copyAsset(assetPath: String, destPath: String, promise: Promise) = async(promise) {
+    if (assetPath.isBlank() || assetPath.startsWith("/") || assetPath.contains("..") || assetPath.contains('\\')) {
+      throw IllegalArgumentException("Invalid asset path")
+    }
+    val dest = safeFile(destPath)
+    dest.parentFile?.mkdirs()
+    val temp = File(dest.parentFile, "${dest.name}.part")
+    var bytes = 0L
+    try {
+      reactApplicationContext.assets.open(assetPath).use { input ->
+        FileOutputStream(temp).use { out -> bytes = input.copyTo(out, 1 shl 16) }
+      }
+      if (dest.exists()) dest.delete()
+      if (!temp.renameTo(dest)) throw IOException("Could not finalize copy")
+    } catch (e: Exception) {
+      temp.delete()
+      throw e
+    }
+    bytes.toDouble()
+  }
+
   override fun mkdirs(path: String, promise: Promise) = async(promise) {
     val dir = safeFile(path)
     if (!dir.isDirectory && !dir.mkdirs()) throw IOException("Could not create folder")
@@ -320,19 +350,26 @@ class FileBridgeModule(private val context: ReactApplicationContext) :
   }
 
   override fun deletePath(path: String, promise: Promise) = async(promise) {
-    val file = safeFile(path)
-    val roots = listOf(context.filesDir, context.cacheDir).map { it.canonicalPath }
-    if (file.path in roots) throw SecurityException("Refusing to delete a storage root")
+    val file = safeChild(path)
     if (file.exists() && !file.deleteRecursively()) throw IOException("Could not delete")
     null
   }
 
+  /** Moves [from] to [to]. An existing target is kept aside until the move succeeds. */
   override fun movePath(from: String, to: String, promise: Promise) = async(promise) {
-    val source = safeFile(from)
-    val target = safeFile(to)
+    val source = safeChild(from)
+    val target = safeChild(to)
+    if (!source.exists()) throw IOException("Nothing to move")
     target.parentFile?.mkdirs()
-    if (target.exists()) target.deleteRecursively()
-    if (!source.renameTo(target)) throw IOException("Could not move")
+    val backup = File(target.parentFile, "${target.name}.old")
+    backup.deleteRecursively()
+    val hadTarget = target.exists()
+    if (hadTarget && !target.renameTo(backup)) throw IOException("Could not move existing item aside")
+    if (!source.renameTo(target)) {
+      if (hadTarget) backup.renameTo(target) // put the old one back
+      throw IOException("Could not move")
+    }
+    backup.deleteRecursively()
     null
   }
 

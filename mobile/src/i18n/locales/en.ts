@@ -83,6 +83,7 @@ const en = {
     forward10: 'Forward 10 seconds',
     previewSpeed: 'Playback speed',
     position: '{{current}} of {{total}}',
+    seek: 'Playback position',
   },
   export: {
     title: 'Export audio',
@@ -99,6 +100,10 @@ const en = {
     saved: 'Saved',
     unavailableFormats: 'Formats this device cannot encode are hidden.',
     metadataNote: 'Title tags (metadata)',
+    tagTitle: 'Title tag',
+    tagArtist: 'Artist tag',
+    tagsHint: 'Shown by music players. Leave empty to skip.',
+    noTags: '{{format}} files are saved without title/artist tags.',
     mixing: 'Mixing…',
   },
   mixer: {
@@ -150,6 +155,9 @@ const en = {
     },
     installed: '{{name}} installed',
     updated: '{{name}} updated',
+    replaceTitle: 'Replace {{name}}?',
+    replaceBody: 'This package has the same id as an installed voice.\nInstalled: {{current}}\nNew: {{incoming}}',
+    replace: 'Replace',
     createMine: 'Create my voice',
     createMineBody: 'Record your voice, train it on a computer, use it offline',
     personal: 'Personal',

@@ -53,6 +53,8 @@ export function ExportScreen({ route }: Props) {
   const [bitrate, setBitrate] = useState(prefs.defaultBitrate);
   const [sampleRate, setSampleRate] = useState(0);
   const [name, setName] = useState(defaultFileName());
+  const [tagTitle, setTagTitle] = useState('');
+  const [tagArtist, setTagArtist] = useState(prefs.exportArtist);
   // Trim is specific to one recording, so it is never carried over.
   const [mix, setMix] = useState<MixSettings>(() => ({ ...prefs.mixSettings, trimStartMs: 0, trimEndMs: 0 }));
   const [busy, setBusy] = useState<'save' | 'share' | 'preview' | null>(null);
@@ -61,7 +63,10 @@ export function ExportScreen({ route }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    generationsRepo.get(route.params.generationId).then(setGeneration);
+    generationsRepo.get(route.params.generationId).then(g => {
+      setGeneration(g);
+      setTagTitle(g?.title ?? '');
+    });
     AudioTools.getSupportedExportFormats().then(list => {
       const supported = list.filter((f): f is ExportFormat => f in FORMAT_INFO);
       setFormats(supported);
@@ -164,6 +169,9 @@ export function ExportScreen({ route }: Props) {
         format,
         bitrateKbps: info.lossy ? bitrate : 0,
         sampleRate,
+        title: info.tags ? tagTitle.trim() : '',
+        artist: info.tags ? tagArtist.trim() : '',
+        comment: '',
       });
     } finally {
       if (mixPath) {
@@ -206,6 +214,9 @@ export function ExportScreen({ route }: Props) {
       usePreferences.getState().set('defaultExportFormat', format);
       if (info.lossy) {
         usePreferences.getState().set('defaultBitrate', bitrate);
+      }
+      if (info.tags) {
+        usePreferences.getState().set('exportArtist', tagArtist.trim());
       }
     } catch (e) {
       setError(errorText(toAppError(e, 'export_failed')));
@@ -299,14 +310,22 @@ export function ExportScreen({ route }: Props) {
           />
         </View>
         <AppText>{t('export.estimatedSize', { size: formatBytes(estimated) })}</AppText>
-        <View style={styles.row}>
-          <AppText tone="faint" style={styles.flex}>
-            {t('export.metadataNote')}
+        {info.tags ? (
+          <>
+            <TextField label={t('export.tagTitle')} value={tagTitle} onChangeText={setTagTitle} maxLength={200} />
+            <TextField
+              label={t('export.tagArtist')}
+              value={tagArtist}
+              onChangeText={setTagArtist}
+              maxLength={200}
+              hint={t('export.tagsHint')}
+            />
+          </>
+        ) : (
+          <AppText variant="small" tone="faint">
+            {t('export.noTags', { format: info.label })}
           </AppText>
-          <AppText variant="caption" tone="faint">
-            {t('common.comingSoon')}
-          </AppText>
-        </View>
+        )}
       </Card>
 
       {error ? <Banner tone="error" text={error} /> : null}
@@ -332,6 +351,4 @@ export function ExportScreen({ route }: Props) {
 
 const styles = StyleSheet.create({
   group: { gap: spacing.sm },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  flex: { flex: 1 },
 });

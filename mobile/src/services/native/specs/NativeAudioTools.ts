@@ -34,6 +34,10 @@ export type ExportRequest = {
   bitrateKbps: number;
   /** 0 = keep source sample rate. */
   sampleRate: number;
+  /** Tags (UTF-8). Empty = none. Written for WAV, MP3 and FLAC only. */
+  title: string;
+  artist: string;
+  comment: string;
 };
 
 export type ExportResult = {

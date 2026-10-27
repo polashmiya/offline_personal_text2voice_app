@@ -56,3 +56,19 @@ node tools/voice-package/make-voicepack.mjs \
 ```
 
 The config is the manifest without `checksums`/`createdAt`, plus `include` (package path → source path).
+
+## Built-in voices
+
+`mobile/android/app/src/main/assets/voices/*.voicepack` are installed on first launch through the same
+validated import (`features/model-manager/services/bundledVoices.ts`). Each is installed once; deleting it in
+the app is remembered. The packs (~31 MB each) are **not in git**; rebuild them before a release build:
+
+```bash
+for v in norman john; do
+  curl -LO https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-$v-medium-int8.tar.bz2
+  tar -xjf vits-piper-en_US-$v-medium-int8.tar.bz2
+  node tools/voice-package/make-voicepack.mjs --src vits-piper-en_US-$v-medium-int8 \n    --config models/voices/en-piper-$v-medium-int8.json \n    --out mobile/android/app/src/main/assets/voices/en-piper-$v-medium.voicepack
+done
+```
+
+Without them the app still builds and runs; it simply starts with no built-in voices.

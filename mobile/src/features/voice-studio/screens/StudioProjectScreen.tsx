@@ -118,6 +118,8 @@ export function StudioProjectScreen({ route, navigation }: Props) {
     }
     await studioRepo.deleteProject(project.id);
     await FileBridge.deletePath(paths().studioDir(project.id)).catch(() => undefined);
+    // Dataset zips waiting to be shared contain this speaker's recordings.
+    await FileBridge.deletePath(paths().share).catch(() => undefined);
     navigation.goBack();
   };
 

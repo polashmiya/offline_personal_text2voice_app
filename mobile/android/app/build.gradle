@@ -104,6 +104,15 @@ if (!sherpaAar.exists() || sha256Of(sherpaAar) != sherpaSha256) {
     partial.renameTo(sherpaAar)
 }
 
+def releaseKeystore = null
+def keystorePropsFile = rootProject.file("keystore.properties")
+if (keystorePropsFile.exists()) {
+    releaseKeystore = new Properties()
+    keystorePropsFile.withInputStream { releaseKeystore.load(it) }
+} else {
+    logger.warn("keystore.properties not found: release builds will be UNSIGNED (see docs/android-build.md)")
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -150,15 +159,24 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Real release key, read from the gitignored android/keystore.properties.
+        if (releaseKeystore != null) {
+            release {
+                storeFile file(releaseKeystore['storeFile'])
+                storePassword releaseKeystore['storePassword']
+                keyAlias releaseKeystore['keyAlias']
+                keyPassword releaseKeystore['keyPassword']
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Never sign a release with the public debug key: without keystore.properties
+            // (e.g. a fresh clone) the release APK is left unsigned and cannot be installed.
+            signingConfig releaseKeystore != null ? signingConfigs.release : null
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }

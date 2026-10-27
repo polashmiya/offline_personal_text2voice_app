@@ -18,3 +18,9 @@ tools/voice-training/dist/
 *.ckpt
 *.voicedataset.zip
 __pycache__/
+
+# Release signing (never commit)
+keystore.properties
+
+# Built-in voice packs (~31 MB each): rebuild with docs/voice-packages.md
+mobile/android/app/src/main/assets/voices/*.voicepack

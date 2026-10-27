@@ -115,6 +115,9 @@ export function ToastHost() {
   }
   return (
     <Pressable
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      accessibilityLabel={toast.text}
       onPress={() => useToastStore.setState({ toast: null })}
       style={[styles.toast, { bottom: insets.bottom + 72 }]}>
       <Banner tone={toast.tone} text={toast.text} />

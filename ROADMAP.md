@@ -14,9 +14,20 @@ export → `.voicepack`, Colab notebook).
 **Progress (2026-10-27):** step 9 built — native streaming mixer (`audio/Mixer.kt`: music loop with seam
 fades, voice/music volume, music fade in/out, voice trim, silence padding, auto-duck with lookahead + hold,
 lookahead limiter, two-pass loudness normalization), any-format music import (`AudioDecoder.kt`, decoded
-once to mono WAV), music library (`music_tracks`, DB v3), mixer + preview on the Export screen. Still open
-in step 9: bundled CC0 tracks (none shipped yet — user import only) and metadata tags; device test of
-every format decoding back. Remaining: step 12.
+once to mono WAV), music library (`music_tracks`, DB v3), mixer + preview on the Export screen, UTF-8
+title/artist tags for WAV (LIST/INFO), MP3 (ID3v2.4) and FLAC (Vorbis comment); M4A/OGG say they carry no
+tags (MediaMuxer limit). See `docs/audio-pipeline.md`. Four built-in CC0 loops synthesized by
+`tools/music/generate-music.mjs` (Calm Ambient, Light Electronic Ambient, Soft Keys, Tech Focus) are
+installed into the library on start. Still open in step 9: device test of every format decoding back.
+
+**Step 12 so far (2026-10-27):** release keystore + signing (unsigned instead of debug-signed without it);
+built-in male English "tech narrator" voices Norman and John (public-domain Piper, INT8, installed on
+first launch through the validated import); security review fixes (token check for every engine,
+extraction capped by free space, confirm before replacing a voice and never replace a personal voice with
+a non-personal pack, dataset zips moved to `cache/share` and cleaned, safe `movePath`/`deletePath`,
+decoder format re-validation + deadline, error codes instead of raw messages in logs); accessibility
+(48 dp chips, announced toasts, localized waveform label). Open: optional model download (deferred),
+device performance/airplane-mode checklist, path checks in AudioTools/VoiceEngine (defense in depth).
 
 ---
 

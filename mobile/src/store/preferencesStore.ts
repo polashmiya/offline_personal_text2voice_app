@@ -3,7 +3,7 @@ import { settingsRepo } from '../services/db/repositories';
 import type { ExportFormat, LanguageMode } from '../domain/types';
 import { DEFAULT_BITRATE } from '../domain/export/fileName';
 import { DEFAULT_MIX, parseMixSettings, type MixSettings } from '../domain/audio/mix';
-import { logger } from '../services/logging/logger';
+import { errorCode, logger } from '../services/logging/logger';
 
 /** Persistent user preferences (stored in SQLite `settings`). */
 export type Preferences = {
@@ -20,6 +20,8 @@ export type Preferences = {
   normalizeAudio: boolean;
   /** Last-used Audio Studio settings (music, volumes, ducking, fades). */
   mixSettings: MixSettings;
+  /** Artist tag remembered between exports. */
+  exportArtist: string;
   onboardingDone: boolean;
 };
 
@@ -36,6 +38,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   defaultBitrate: DEFAULT_BITRATE,
   normalizeAudio: true,
   mixSettings: DEFAULT_MIX,
+  exportArtist: '',
   onboardingDone: false,
 };
 
@@ -70,6 +73,6 @@ export const usePreferences = create<PreferencesState>((setState, getState) => (
       return;
     }
     setState({ [key]: value } as Partial<PreferencesState>);
-    settingsRepo.set(key, JSON.stringify(value)).catch(e => logger.error('prefs.save_failed', { key, msg: String(e) }));
+    settingsRepo.set(key, JSON.stringify(value)).catch(e => logger.error('prefs.save_failed', { key, code: errorCode(e) }));
   },
 }));

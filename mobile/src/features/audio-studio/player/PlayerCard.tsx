@@ -12,7 +12,17 @@ import { localizeDigits } from '../../../i18n';
 const BARS = 72;
 const RATES = [0.75, 1, 1.25, 1.5];
 
-function Waveform({ path, progress, onSeek }: { path: string; progress: number; onSeek: (fraction: number) => void }) {
+function Waveform({
+  path,
+  progress,
+  onSeek,
+  label,
+}: {
+  path: string;
+  progress: number;
+  onSeek: (fraction: number) => void;
+  label: string;
+}) {
   const { colors } = useTheme();
   const [peaks, setPeaks] = useState<number[]>([]);
   const [width, setWidth] = useState(0);
@@ -35,7 +45,7 @@ function Waveform({ path, progress, onSeek }: { path: string; progress: number; 
       onLayout={onLayout}
       onPress={e => width > 0 && onSeek(e.nativeEvent.locationX / width)}
       accessibilityRole="adjustable"
-      accessibilityLabel="Waveform"
+      accessibilityLabel={label}
       accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
       accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
       onAccessibilityAction={e => onSeek(Math.max(0, Math.min(1, progress + (e.nativeEvent.actionName === 'increment' ? 0.1 : -0.1))))}
@@ -76,7 +86,7 @@ export function PlayerCard({ path, title }: { path: string; title?: string }) {
           {title}
         </AppText>
       ) : null}
-      <Waveform path={path} progress={progress} onSeek={seekFraction} />
+      <Waveform path={path} progress={progress} onSeek={seekFraction} label={t('player.seek')} />
       <View style={styles.times}>
         <AppText variant="caption" tone="muted">
           {formatClock(isCurrent ? player.positionMs : 0)}

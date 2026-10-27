@@ -215,13 +215,21 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
     val format = request.getString("format")!!
     val bitrate = request.getDouble("bitrateKbps").toInt().coerceIn(32, 320)
     val sampleRate = request.getDouble("sampleRate").toInt()
+    val tags = AudioTags.of(
+      request.takeIf { it.hasKey("title") }?.getString("title"),
+      request.takeIf { it.hasKey("artist") }?.getString("artist"),
+      request.takeIf { it.hasKey("comment") }?.getString("comment"),
+    )
     val temp = File(output.parentFile, "${output.name}.part")
     temp.delete()
     try {
       when (format) {
-        "wav" -> Mixer.resampleWav(input, temp, sampleRate)
-        "mp3" -> Lame.encodeWav(input, temp, bitrate, sampleRate)
-        else -> AudioEncoder.encode(input, temp, format, bitrate, sampleRate)
+        "wav" -> {
+          Mixer.resampleWav(input, temp, sampleRate)
+          if (!tags.isEmpty) TagWriter.appendWavInfo(temp, tags)
+        }
+        "mp3" -> Lame.encodeWav(input, temp, bitrate, sampleRate, if (tags.isEmpty) null else TagWriter.id3v2(tags))
+        else -> AudioEncoder.encode(input, temp, format, bitrate, sampleRate, tags)
       }
       if (output.exists()) output.delete()
       if (!temp.renameTo(output)) throw IOException("Could not finalize export")

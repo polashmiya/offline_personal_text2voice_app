@@ -19,6 +19,7 @@ export type ImportStage = 'copying' | 'extracting' | 'verifying' | 'testing' | '
 
 export type ImportResult =
   | { status: 'installed'; manifest: VoicePackManifest; replaced: boolean }
+  | { status: 'kept' }
   | { status: 'cancelled' }
   | { status: 'failed'; error: AppError; reason?: string };
 
@@ -82,8 +83,8 @@ async function verifyPackage(dir: string, onStage: (s: ImportStage) => void) {
       throw new PackageError(`Missing folder: ${folder}`);
     }
   }
-  if (manifest.engine === 'vits') {
-    // The engine exits the process on a malformed tokens file, so check it first.
+  {
+    // The engine exits the process on a malformed tokens file (any engine), so check it first.
     const problem = validateTokens(await FileBridge.readText(`${dir}/${manifest.files.tokens}`));
     if (problem) {
       throw new PackageError(problem);
@@ -93,25 +94,53 @@ async function verifyPackage(dir: string, onStage: (s: ImportStage) => void) {
   return { manifest, totalBytes };
 }
 
+export type ReplaceInfo = { current: VoicePackManifest; incoming: VoicePackManifest };
+
 /**
- * Picks a .voicepack, validates it fully, test-loads it in the engine and
- * only then installs it. A failed import never leaves a voice marked installed.
+ * Asked before an import overwrites an installed voice with the same id.
+ * Resolve true to replace. Never asked when a non-personal package targets a
+ * personal voice: that is always refused.
  */
-export async function importVoicePack(onStage: (stage: ImportStage) => void): Promise<ImportResult> {
+export type ConfirmReplace = (info: ReplaceInfo) => Promise<boolean>;
+
+/** Where the package comes from: the system file picker, or a pack bundled in the APK's assets/. */
+export type PackageSource = { kind: 'picker' } | { kind: 'asset'; assetPath: string };
+
+async function obtainPackage(source: PackageSource): Promise<{ path: string; sizeBytes: number } | null> {
+  if (source.kind === 'asset') {
+    const dest = `${paths().imports}/${newId('asset_')}.voicepack`;
+    await FileBridge.mkdirs(paths().imports);
+    const sizeBytes = await FileBridge.copyAsset(source.assetPath, dest);
+    return { path: dest, sizeBytes };
+  }
+  const picked = await FileBridge.pickFile(
+    ['application/zip', 'application/octet-stream', 'application/x-zip-compressed'],
+    MAX_PACKAGE_BYTES,
+  );
+  return picked ? { path: picked.cachedPath, sizeBytes: picked.sizeBytes } : null;
+}
+
+/**
+ * Gets a .voicepack (picked or bundled), validates it fully, test-loads it in
+ * the engine and only then installs it. Bundled packs get exactly the same
+ * checks. A failed import never leaves a voice marked installed.
+ */
+export async function importVoicePack(
+  onStage: (stage: ImportStage) => void,
+  confirmReplace: ConfirmReplace,
+  source: PackageSource = { kind: 'picker' },
+): Promise<ImportResult> {
   const p = paths();
   const staging = `${p.staging}/${newId('pkg_')}`;
   let pickedPath: string | null = null;
   try {
     onStage('copying');
     const free = await FileBridge.freeSpaceBytes();
-    const picked = await FileBridge.pickFile(
-      ['application/zip', 'application/octet-stream', 'application/x-zip-compressed'],
-      MAX_PACKAGE_BYTES,
-    );
+    const picked = await obtainPackage(source);
     if (!picked) {
       return { status: 'cancelled' };
     }
-    pickedPath = picked.cachedPath;
+    pickedPath = picked.path;
     // Need room for the extracted copy (the zip copy is already on disk).
     if (free - picked.sizeBytes < picked.sizeBytes * 1.3 + 50 * 1024 * 1024) {
       throw new AppException('insufficient_storage');
@@ -119,7 +148,12 @@ export async function importVoicePack(onStage: (stage: ImportStage) => void): Pr
 
     onStage('extracting');
     await FileBridge.mkdirs(staging);
-    await FileBridge.extractZipSafely(pickedPath, staging, MAX_PACKAGE_BYTES, MAX_PACKAGE_ENTRIES);
+    // Cap extraction by real free space too, so a small zip bomb can't fill the device.
+    const extractLimit = Math.min(MAX_PACKAGE_BYTES, free - picked.sizeBytes - 100 * 1024 * 1024);
+    if (extractLimit <= 0) {
+      throw new AppException('insufficient_storage');
+    }
+    await FileBridge.extractZipSafely(pickedPath, staging, extractLimit, MAX_PACKAGE_ENTRIES);
     await FileBridge.deletePath(pickedPath);
     pickedPath = null;
 
@@ -133,6 +167,15 @@ export async function importVoicePack(onStage: (stage: ImportStage) => void): Pr
     const maxSpeaker = Math.max(...manifest.speakers.map(s => s.id));
     if (maxSpeaker >= Math.max(1, loaded.numSpeakers)) {
       throw new PackageError('Manifest lists more styles than the model has speakers');
+    }
+    const current = await voicesRepo.manifest(manifest.id);
+    if (current) {
+      if (current.personal && !manifest.personal) {
+        throw new PackageError('A personal voice can only be replaced by a personal voice package');
+      }
+      if (!(await confirmReplace({ current, incoming: manifest }))) {
+        return { status: 'kept' };
+      }
     }
     // The staging copy is about to move; make sure nothing holds it open.
     await VoiceEngine.unloadVoice();

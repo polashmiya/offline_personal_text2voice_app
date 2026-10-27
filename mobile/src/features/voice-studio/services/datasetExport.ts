@@ -42,7 +42,11 @@ function slug(name: string): string {
   return s || 'my-voice';
 }
 
-/** Builds <name>.voicedataset.zip in app storage (exports/). The caller saves or shares it. */
+/**
+ * Builds <name>.voicedataset.zip in cache/share/ (temporary: it holds the
+ * speaker's recordings and consent, so it is never kept with normal exports).
+ * The caller saves or shares it.
+ */
 export async function exportDataset(project: VoiceProject): Promise<DatasetExportResult> {
   const recordings = await studioRepo.recordings(project.id);
   const build = FileBridge.getBuildInfo();
@@ -64,7 +68,7 @@ export async function exportDataset(project: VoiceProject): Promise<DatasetExpor
 
   const work = `${paths().cacheDir}/dataset_${newId()}`;
   const fileName = `${slug(project.name)}.voicedataset.zip`;
-  const out = `${paths().exports}/${newId('ds_')}_${fileName}`;
+  const out = `${paths().share}/${newId('ds_')}_${fileName}`;
   try {
     await FileBridge.mkdirs(work);
     await FileBridge.writeTextAtomic(`${work}/dataset.json`, JSON.stringify(datasetJson, null, 2));
@@ -82,7 +86,7 @@ export async function exportDataset(project: VoiceProject): Promise<DatasetExpor
         return { sourcePath: rec.filePath, zipPath: take.file };
       }),
     ];
-    await FileBridge.mkdirs(paths().exports);
+    await FileBridge.mkdirs(paths().share);
     const zip = await FileBridge.createZip(entries, out);
     logger.info('studio.dataset_exported', { takes: datasetJson.takes.length, bytes: zip.sizeBytes });
     return {

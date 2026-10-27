@@ -48,6 +48,8 @@ object AudioDecoder {
       codec.start()
 
       val maxFrames = maxDurationMs * sampleRate / 1000
+      // Generous: decoding runs far faster than real time; this only stops a stuck codec.
+      val deadline = System.currentTimeMillis() + maxOf(60_000L, maxDurationMs / 2)
       val info = MediaCodec.BufferInfo()
       var mono = FloatArray(8192)
       var inputDone = false
@@ -69,11 +71,16 @@ object AudioDecoder {
           }
         }
 
+        if (System.currentTimeMillis() > deadline) throw InvalidAudioException("Decoding took too long")
         val outIndex = codec.dequeueOutputBuffer(info, TIMEOUT_US)
         if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
           val out = codec.outputFormat
-          sampleRate = out.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+          val newRate = out.getInteger(MediaFormat.KEY_SAMPLE_RATE)
           channels = out.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+          if (newRate !in 4000..192000 || channels !in 1..8) throw InvalidAudioException("Invalid audio parameters")
+          // The WAV header is fixed once writing starts; a mid-stream rate change would play at the wrong pitch.
+          if (writer != null && newRate != sampleRate) throw InvalidAudioException("Sample rate changed mid-stream")
+          sampleRate = newRate
           floatPcm = out.containsKey(MediaFormat.KEY_PCM_ENCODING) &&
             out.getInteger(MediaFormat.KEY_PCM_ENCODING) == AudioFormat.ENCODING_PCM_FLOAT
           continue

@@ -78,6 +78,7 @@ const bn: TranslationShape = {
     textTooLong: 'লেখাটি অনেক বড় — তৈরি হতে সময় লাগবে এবং ব্যাকগ্রাউন্ডে চলবে।',
   },
   player: {
+    seek: 'প্লেব্যাকের অবস্থান',
     play: 'চালান',
     pause: 'থামান',
     restart: 'শুরু থেকে',
@@ -101,6 +102,10 @@ const bn: TranslationShape = {
     saved: 'সংরক্ষিত হয়েছে',
     unavailableFormats: 'এই ফোন যে ফরম্যাট তৈরি করতে পারে না, সেগুলো দেখানো হয়নি।',
     metadataNote: 'শিরোনাম ট্যাগ (মেটাডাটা)',
+    tagTitle: 'শিরোনাম ট্যাগ',
+    tagArtist: 'শিল্পী ট্যাগ',
+    tagsHint: 'মিউজিক প্লেয়ারে দেখা যায়। না চাইলে খালি রাখুন।',
+    noTags: '{{format}} ফাইলে শিরোনাম/শিল্পী ট্যাগ সংরক্ষণ হয় না।',
     mixing: 'মিক্স হচ্ছে…',
   },
   mixer: {
@@ -152,6 +157,9 @@ const bn: TranslationShape = {
     },
     installed: '{{name}} ইনস্টল হয়েছে',
     updated: '{{name}} আপডেট হয়েছে',
+    replaceTitle: '{{name}} বদলাবেন?',
+    replaceBody: 'এই প্যাকেজের আইডি একটি ইনস্টল করা কণ্ঠের সাথে মিলে যায়।\nইনস্টল করা: {{current}}\nনতুন: {{incoming}}',
+    replace: 'বদলান',
     createMine: 'নিজের ভয়েস তৈরি',
     createMineBody: 'কণ্ঠ রেকর্ড করুন, কম্পিউটারে ট্রেন করুন, অফলাইনে ব্যবহার করুন',
     personal: 'ব্যক্তিগত',

@@ -52,7 +52,8 @@ object AudioEncoder {
     }
   }
 
-  fun encode(input: File, output: File, format: String, bitrateKbps: Int, requestedRate: Int) {
+  /** [tags] are written for FLAC only; MediaMuxer (M4A, OGG) has no tag support. */
+  fun encode(input: File, output: File, format: String, bitrateKbps: Int, requestedRate: Int, tags: AudioTags? = null) {
     val mime = when (format) {
       "m4a" -> MIME_AAC
       "flac" -> MIME_FLAC
@@ -77,7 +78,7 @@ object AudioEncoder {
       val sink: EncodedSink = when (format) {
         "m4a" -> MuxerSink(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
         "opus" -> MuxerSink(output, MediaMuxer.OutputFormat.MUXER_OUTPUT_OGG)
-        else -> FlacSink(output)
+        else -> FlacSink(output, tags?.takeUnless { it.isEmpty })
       }
       var codec: MediaCodec? = null
       try {
@@ -207,7 +208,7 @@ object AudioEncoder {
   }
 
   /** FLAC from MediaCodec is a raw stream: "fLaC" + STREAMINFO header, then frames. */
-  private class FlacSink(file: File) : EncodedSink {
+  private class FlacSink(file: File, private val tags: AudioTags?) : EncodedSink {
     private val out = BufferedOutputStream(FileOutputStream(file), 1 shl 16)
     private var headerWritten = false
 
@@ -220,13 +221,16 @@ object AudioEncoder {
       if (headerWritten) return
       val bytes = ByteArray(data.remaining())
       data.duplicate().get(bytes)
-      if (bytes.size >= 4 && String(bytes, 0, 4, Charsets.US_ASCII) == "fLaC") {
-        out.write(bytes)
-      } else {
+      val marker = "fLaC".toByteArray(Charsets.US_ASCII)
+      var header = when {
+        bytes.size >= 4 && String(bytes, 0, 4, Charsets.US_ASCII) == "fLaC" -> bytes
+        // Bare 34-byte STREAMINFO body: add marker + last-block header.
+        bytes.size == 34 -> marker + byteArrayOf(0x80.toByte(), 0, 0, 34) + bytes
         // Some encoders emit only the STREAMINFO block: add the stream marker.
-        out.write("fLaC".toByteArray(Charsets.US_ASCII))
-        out.write(bytes)
+        else -> marker + bytes
       }
+      if (tags != null) header = TagWriter.flacHeaderWithComments(header, tags)
+      out.write(header)
       headerWritten = true
     }
 

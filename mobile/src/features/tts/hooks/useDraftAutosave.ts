@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { useEditor, saveDraft } from '../store/editorStore';
 import { usePreferences } from '../../../store/preferencesStore';
 import { projectsRepo } from '../../../services/db/repositories';
-import { logger } from '../../../services/logging/logger';
+import { errorCode, logger } from '../../../services/logging/logger';
 
 const DEBOUNCE_MS = 1500;
 
@@ -38,12 +38,12 @@ export function useDraftAutosave() {
         clearTimeout(timer.current);
       }
       timer.current = setTimeout(() => {
-        persist().catch(e => logger.warn('draft.save_failed', { msg: String(e) }));
+        persist().catch(e => logger.warn('draft.save_failed', { code: errorCode(e) }));
       }, DEBOUNCE_MS);
     });
     const appState = AppState.addEventListener('change', next => {
       if (next !== 'active' && useEditor.getState().dirty) {
-        persist().catch(e => logger.warn('draft.save_failed', { msg: String(e) }));
+        persist().catch(e => logger.warn('draft.save_failed', { code: errorCode(e) }));
       }
     });
     return () => {

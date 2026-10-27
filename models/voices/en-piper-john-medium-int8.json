@@ -1,0 +1,52 @@
+{
+  "formatVersion": 1,
+  "id": "en-piper-john-medium",
+  "name": "John — Tech Narrator (English, male)",
+  "description": "Warm US English male voice for tutorials, product demos and narration. Built in, INT8, fully offline.",
+  "version": "1.0.0-int8",
+  "engine": "vits",
+  "languages": [
+    "en"
+  ],
+  "languageHandling": {
+    "en": "native"
+  },
+  "locale": "en-US",
+  "gender": "male",
+  "quality": "fast",
+  "sampleRate": 22050,
+  "maxChunkChars": 220,
+  "personal": false,
+  "files": {
+    "model": "model/en_US-john-medium.onnx",
+    "tokens": "model/tokens.txt",
+    "dataDir": "model/espeak-ng-data"
+  },
+  "speakers": [
+    {
+      "id": 0,
+      "key": "default",
+      "label": "Narrator"
+    }
+  ],
+  "defaults": {
+    "noiseScale": 0.667,
+    "noiseScaleW": 0.8,
+    "lengthScale": 1
+  },
+  "supports": {
+    "speed": true,
+    "pitch": false
+  },
+  "license": {
+    "name": "Dataset public domain (LibriVox); Piper model by Bryce Beattie, public domain; espeak-ng-data GPL-3.0",
+    "url": "https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/john/medium",
+    "commercialUse": true,
+    "attribution": "Piper voice en_US-john-medium by Bryce Beattie (fine-tuned from Kristin), LibriVox public-domain recordings. INT8 conversion by sherpa-onnx."
+  },
+  "include": {
+    "model/en_US-john-medium.onnx": "en_US-john-medium.onnx",
+    "model/tokens.txt": "tokens.txt",
+    "model/espeak-ng-data": "espeak-ng-data"
+  }
+}

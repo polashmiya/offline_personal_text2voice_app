@@ -23,13 +23,13 @@ export function sanitizeFileName(name: string): string {
 
 export const FORMAT_INFO: Record<
   ExportFormat,
-  { extension: string; mime: string; lossy: boolean; label: string }
+  { extension: string; mime: string; lossy: boolean; label: string; /** Title/artist tags can be written. */ tags: boolean }
 > = {
-  wav: { extension: 'wav', mime: 'audio/wav', lossy: false, label: 'WAV' },
-  mp3: { extension: 'mp3', mime: 'audio/mpeg', lossy: true, label: 'MP3' },
-  m4a: { extension: 'm4a', mime: 'audio/mp4', lossy: true, label: 'M4A (AAC)' },
-  flac: { extension: 'flac', mime: 'audio/flac', lossy: false, label: 'FLAC' },
-  opus: { extension: 'ogg', mime: 'audio/ogg', lossy: true, label: 'OGG (Opus)' },
+  wav: { extension: 'wav', mime: 'audio/wav', lossy: false, label: 'WAV', tags: true },
+  mp3: { extension: 'mp3', mime: 'audio/mpeg', lossy: true, label: 'MP3', tags: true },
+  m4a: { extension: 'm4a', mime: 'audio/mp4', lossy: true, label: 'M4A (AAC)', tags: false },
+  flac: { extension: 'flac', mime: 'audio/flac', lossy: false, label: 'FLAC', tags: true },
+  opus: { extension: 'ogg', mime: 'audio/ogg', lossy: true, label: 'OGG (Opus)', tags: false },
 };
 
 export const BITRATES = [128, 192, 256, 320] as const;

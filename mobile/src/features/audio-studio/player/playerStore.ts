@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { AudioTools } from '../../../services/native';
-import { logger } from '../../../services/logging/logger';
+import { errorCode, logger } from '../../../services/logging/logger';
 
 /** Player state. There is one native player; any screen can drive it. */
 type PlayerState = {
@@ -64,7 +64,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       set({ path, playing: false, positionMs: 0, durationMs: status.durationMs });
       return true;
     } catch (e) {
-      logger.warn('player.load_failed', { msg: String(e) });
+      logger.warn('player.load_failed', { code: errorCode(e) });
       set({ path: null, playing: false, positionMs: 0, durationMs: 0 });
       return false;
     }

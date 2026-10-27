@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigation } from '@react-navigation/native';
 import { Screen } from '../../../components/layout/Screen';
 import { AppText, Banner, Button, Card, EmptyState } from '../../../components/ui/primitives';
-import { showToast } from '../../../components/ui/overlays';
+import { confirmDialog, showToast } from '../../../components/ui/overlays';
 import { Icon } from '../../../components/ui/Icon';
 import { useVoices } from '../../../store/voicesStore';
 import { usePreferences } from '../../../store/preferencesStore';
@@ -59,7 +59,17 @@ export function VoicesScreen() {
 
   const runImport = async () => {
     setError(null);
-    const result = await importVoicePack(setStage);
+    const result = await importVoicePack(setStage, ({ current, incoming }) =>
+      confirmDialog({
+        title: t('voices.replaceTitle', { name: current.name }),
+        body: t('voices.replaceBody', {
+          current: `${current.name} ${current.version}`,
+          incoming: `${incoming.name} ${incoming.version}`,
+        }),
+        confirmLabel: t('voices.replace'),
+        destructive: true,
+      }),
+    );
     setStage(null);
     if (result.status === 'installed') {
       await useVoices.getState().refresh();

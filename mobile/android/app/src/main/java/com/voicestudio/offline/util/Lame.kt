@@ -29,7 +29,8 @@ object Lame {
   private external fun nativeFlush(handle: Long, out: ByteArray): Int
   private external fun nativeClose(handle: Long)
 
-  fun encodeWav(input: File, output: File, bitrateKbps: Int, requestedRate: Int) {
+  /** [id3] (optional) is written in front of the MP3 frames. */
+  fun encodeWav(input: File, output: File, bitrateKbps: Int, requestedRate: Int, id3: ByteArray? = null) {
     if (!isAvailable) throw IOException("MP3 encoder not available")
     MonoWavReader(input).use { reader ->
       val source = reader.header.sampleRate
@@ -42,6 +43,7 @@ object Lame {
       if (handle == 0L) throw IOException("LAME init failed")
       try {
         BufferedOutputStream(FileOutputStream(output), 1 shl 16).use { out ->
+          if (id3 != null) out.write(id3)
           val block = FloatArray(4096)
           val mp3 = ByteArray(16384)
           while (true) {
