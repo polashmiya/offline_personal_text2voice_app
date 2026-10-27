@@ -103,6 +103,20 @@ const MIGRATIONS: string[][] = [
      )`,
     `CREATE INDEX idx_recordings_project ON recordings(voice_project_id)`,
   ],
+  // v3 — Audio Studio music library
+  [
+    `CREATE TABLE music_tracks (
+       id TEXT PRIMARY KEY,
+       name TEXT NOT NULL,
+       file_path TEXT NOT NULL,
+       duration_ms INTEGER NOT NULL,
+       sample_rate INTEGER NOT NULL,
+       source TEXT NOT NULL,
+       license TEXT,
+       attribution TEXT,
+       created_at TEXT NOT NULL
+     )`,
+  ],
 ];
 
 let db: DB | null = null;

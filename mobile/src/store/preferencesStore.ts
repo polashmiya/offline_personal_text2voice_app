@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { settingsRepo } from '../services/db/repositories';
 import type { ExportFormat, LanguageMode } from '../domain/types';
 import { DEFAULT_BITRATE } from '../domain/export/fileName';
+import { DEFAULT_MIX, parseMixSettings, type MixSettings } from '../domain/audio/mix';
 import { logger } from '../services/logging/logger';
 
 /** Persistent user preferences (stored in SQLite `settings`). */
@@ -17,6 +18,8 @@ export type Preferences = {
   defaultExportFormat: ExportFormat;
   defaultBitrate: number;
   normalizeAudio: boolean;
+  /** Last-used Audio Studio settings (music, volumes, ducking, fades). */
+  mixSettings: MixSettings;
   onboardingDone: boolean;
 };
 
@@ -32,6 +35,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   defaultExportFormat: 'mp3',
   defaultBitrate: DEFAULT_BITRATE,
   normalizeAudio: true,
+  mixSettings: DEFAULT_MIX,
   onboardingDone: false,
 };
 
@@ -55,6 +59,9 @@ export const usePreferences = create<PreferencesState>((setState, getState) => (
           logger.warn('prefs.invalid', { key });
         }
       }
+    }
+    if (next.mixSettings !== undefined) {
+      next.mixSettings = parseMixSettings(next.mixSettings);
     }
     setState({ ...next, loaded: true });
   },

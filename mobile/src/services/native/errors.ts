@@ -15,11 +15,13 @@ const KNOWN: AppErrorCode[] = [
   'empty_text',
   'mic_permission',
   'recording_failed',
+  'invalid_audio_file',
 ];
 
+// 'unknown' = use the caller's fallback (e.g. generation_failed, export_failed).
 const NATIVE_ALIASES: Record<string, AppErrorCode> = {
-  invalid_audio: 'generation_failed',
-  audio_processing: 'generation_failed',
+  invalid_audio: 'unknown',
+  audio_processing: 'unknown',
   io_error: 'unknown',
   busy: 'unknown',
 };

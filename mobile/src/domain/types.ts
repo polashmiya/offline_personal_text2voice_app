@@ -111,4 +111,5 @@ export type AppErrorCode =
   | 'empty_text'
   | 'mic_permission'
   | 'recording_failed'
+  | 'invalid_audio_file'
   | 'unknown';

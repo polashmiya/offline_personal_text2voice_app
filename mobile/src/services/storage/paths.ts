@@ -9,6 +9,8 @@ import { FileBridge } from '../native';
  *   files/exports/               exported files (shareable via FileProvider)
  *   files/drafts/                editor auto-save
  *   files/studio/<projectId>/    personal voice recordings (WAV)
+ *   files/music/<trackId>.wav    background music library (decoded mono WAV)
+ *   cache/mix/                   rendered mixes awaiting export/preview (temporary)
  *   cache/jobs/<jobId>/          per-generation chunk audio (temporary)
  *   cache/imports/               copies of picked files (temporary)
  *   cache/staging/               voice packages being validated
@@ -28,6 +30,9 @@ function build() {
     imports: `${cacheDir}/imports`,
     staging: `${cacheDir}/staging`,
     studio: `${filesDir}/studio`,
+    music: `${filesDir}/music`,
+    mix: `${cacheDir}/mix`,
+    musicTrack: (id: string) => `${filesDir}/music/${id}.wav`,
     studioDir: (projectId: string) => `${filesDir}/studio/${projectId}`,
     voiceDir: (voiceId: string) => `${filesDir}/voices/${voiceId}`,
     jobDir: (jobId: string) => `${cacheDir}/jobs/${jobId}`,

@@ -219,7 +219,7 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
     temp.delete()
     try {
       when (format) {
-        "wav" -> writeWav(input, temp, sampleRate)
+        "wav" -> Mixer.resampleWav(input, temp, sampleRate)
         "mp3" -> Lame.encodeWav(input, temp, bitrate, sampleRate)
         else -> AudioEncoder.encode(input, temp, format, bitrate, sampleRate)
       }
@@ -244,19 +244,60 @@ class AudioToolsModule(context: ReactApplicationContext) : NativeAudioToolsSpec(
     }
   }
 
-  private fun writeWav(input: File, output: File, sampleRate: Int) {
-    MonoWavReader(input).use { reader ->
-      val rate = if (sampleRate > 0) sampleRate else reader.header.sampleRate
-      val resampler = Resampler(reader.header.sampleRate, rate)
-      MonoWavWriter(output, rate).use { writer ->
-        val block = FloatArray(8192)
-        while (true) {
-          val n = reader.read(block)
-          val out = if (n < 0) resampler.process(block, 0, flush = true) else resampler.process(block, n)
-          writer.write(out, out.size)
-          if (n < 0) break
-        }
+  override fun decodeToWav(inputPath: String, outputPath: String, maxDurationMs: Double, promise: Promise) =
+    runAsync(promise, ErrorCodes.INVALID_AUDIO) {
+      val output = File(outputPath)
+      val temp = File(output.parentFile, "${output.name}.part")
+      temp.parentFile?.mkdirs()
+      val result = AudioDecoder.decodeToMonoWav(File(inputPath), temp, maxDurationMs.toLong().coerceAtLeast(1000))
+      if (output.exists()) output.delete()
+      if (!temp.renameTo(output)) {
+        temp.delete()
+        throw IOException("Could not finalize decoded audio")
       }
+      Arguments.createMap().apply {
+        putString("outputPath", output.absolutePath)
+        putDouble("durationMs", result.durationMs.toDouble())
+        putInt("sampleRate", result.sampleRate)
+      }
+    }
+
+  override fun mixAudio(request: ReadableMap, promise: Promise) = runAsync(promise, ErrorCodes.AUDIO_PROCESSING) {
+    val output = File(request.getString("outputPath")!!)
+    val workDir = File(output.parentFile, "${output.name}.work")
+    try {
+      val musicPath = if (request.hasKey("musicPath") && !request.isNull("musicPath")) request.getString("musicPath") else null
+      val result = Mixer.mix(
+        MixParams(
+          voice = File(request.getString("voicePath")!!),
+          music = musicPath?.let { File(it) },
+          output = output,
+          workDir = workDir,
+          sampleRate = request.getDouble("sampleRate").toInt(),
+          voiceGain = request.getDouble("voiceGain").toFloat().coerceIn(0f, 2f),
+          musicGain = request.getDouble("musicGain").toFloat().coerceIn(0f, 1f),
+          loopMusic = request.getBoolean("loopMusic"),
+          trimStartMs = request.getDouble("trimStartMs"),
+          trimEndMs = request.getDouble("trimEndMs"),
+          padStartMs = request.getDouble("padStartMs"),
+          padEndMs = request.getDouble("padEndMs"),
+          musicFadeInMs = request.getDouble("musicFadeInMs"),
+          musicFadeOutMs = request.getDouble("musicFadeOutMs"),
+          duck = request.getBoolean("duck"),
+          duckDb = request.getDouble("duckDb").toFloat().coerceIn(0f, 40f),
+          duckAttackMs = request.getDouble("duckAttackMs").coerceIn(5.0, 2000.0),
+          duckReleaseMs = request.getDouble("duckReleaseMs").coerceIn(20.0, 5000.0),
+          normalize = request.getBoolean("normalize"),
+        ),
+      )
+      Arguments.createMap().apply {
+        putString("outputPath", output.absolutePath)
+        putDouble("durationMs", result.durationMs.toDouble())
+        putInt("sampleRate", result.sampleRate)
+        putDouble("peak", result.peak.toDouble())
+      }
+    } finally {
+      workDir.deleteRecursively()
     }
   }
 

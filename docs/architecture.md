@@ -19,6 +19,8 @@ Native (android/app/src/main/java/com/voicestudio/offline)
   audio/AudioToolsModule     WAV join + loudness, waveform, export, MediaPlayer
   audio/AudioEncoder         MediaCodec AAC/FLAC/Opus, MediaMuxer MP4/OGG
   audio/Resampler            streaming windowed-sinc resampler
+  audio/Mixer                voice + music: loop, fades, trim, padding, auto-duck, limiter
+  audio/AudioDecoder         MediaExtractor/MediaCodec → mono WAV (music import)
   util/Lame                  JNI → :lame module (MP3)
   files/FileBridgeModule     SAF pick/save, FileProvider share, safe unzip, sha256, atomic writes
 ```

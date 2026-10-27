@@ -303,6 +303,63 @@ export const pronunciationsRepo = {
   },
 };
 
+// ------------------------------------------------------------------ music library
+
+export type MusicTrack = {
+  id: string;
+  name: string;
+  filePath: string;
+  durationMs: number;
+  sampleRate: number;
+  /** 'user' = imported by the user; 'bundled' = shipped with a redistributable license. */
+  source: 'user' | 'bundled';
+  license: string | null;
+  attribution: string | null;
+};
+
+type MusicRow = {
+  id: string;
+  name: string;
+  file_path: string;
+  duration_ms: number;
+  sample_rate: number;
+  source: string;
+  license: string | null;
+  attribution: string | null;
+};
+
+const toTrack = (r: MusicRow): MusicTrack => ({
+  id: r.id,
+  name: r.name,
+  filePath: r.file_path,
+  durationMs: Number(r.duration_ms),
+  sampleRate: Number(r.sample_rate),
+  source: r.source === 'bundled' ? 'bundled' : 'user',
+  license: r.license,
+  attribution: r.attribution,
+});
+
+export const musicRepo = {
+  async list(): Promise<MusicTrack[]> {
+    const rows = await query<MusicRow>('SELECT * FROM music_tracks ORDER BY created_at DESC');
+    return rows.map(toTrack);
+  },
+  async get(id: string): Promise<MusicTrack | null> {
+    const rows = await query<MusicRow>('SELECT * FROM music_tracks WHERE id = ?', [id]);
+    return rows.length ? toTrack(rows[0]) : null;
+  },
+  async add(t: MusicTrack) {
+    await run(
+      `INSERT INTO music_tracks (id, name, file_path, duration_ms, sample_rate, source, license, attribution, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [t.id, t.name, t.filePath, t.durationMs, t.sampleRate, t.source, t.license, t.attribution, nowIso()],
+    );
+  },
+  async remove(id: string) {
+    await run('DELETE FROM music_tracks WHERE id = ?', [id]);
+  },
+};
+
 // ------------------------------------------------------------------ privacy
 
 export async function deleteAllUserData() {
@@ -310,4 +367,5 @@ export async function deleteAllUserData() {
   await run('DELETE FROM exports');
   await run('DELETE FROM projects');
   await run('DELETE FROM pronunciations');
+  await run("DELETE FROM music_tracks WHERE source = 'user'");
 }

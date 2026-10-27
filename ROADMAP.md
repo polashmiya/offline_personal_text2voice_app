@@ -9,7 +9,14 @@ Every step ends with a runnable app (or a working tool) and a clear "done" check
 **Progress (2026-10-26):** steps 3–8 built. Step 2 done by exporting the openly licensed Piper `bn_BD`
 checkpoint (6 Bangladeshi speakers) instead of training from scratch. Steps 10–11 built: Voice Studio
 recording with quality checks and dataset export, plus `tools/voice-training` (prepare → fine-tune →
-export → `.voicepack`, Colab notebook). Remaining: step 9 (background music / mixer) and step 12.
+export → `.voicepack`, Colab notebook).
+
+**Progress (2026-10-27):** step 9 built — native streaming mixer (`audio/Mixer.kt`: music loop with seam
+fades, voice/music volume, music fade in/out, voice trim, silence padding, auto-duck with lookahead + hold,
+lookahead limiter, two-pass loudness normalization), any-format music import (`AudioDecoder.kt`, decoded
+once to mono WAV), music library (`music_tracks`, DB v3), mixer + preview on the Export screen. Still open
+in step 9: bundled CC0 tracks (none shipped yet — user import only) and metadata tags; device test of
+every format decoding back. Remaining: step 12.
 
 ---
 

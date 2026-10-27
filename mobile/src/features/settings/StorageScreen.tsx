@@ -10,7 +10,7 @@ import { generationsRepo } from '../../services/db/repositories';
 import { useGeneration } from '../tts/store/generationStore';
 import { formatBytes } from '../../utils/format';
 
-type Usage = { voices: number; generated: number; exports: number; drafts: number; cache: number; free: number };
+type Usage = { voices: number; generated: number; exports: number; music: number; drafts: number; cache: number; free: number };
 
 export function StorageScreen() {
   const { t } = useTranslation();
@@ -19,15 +19,16 @@ export function StorageScreen() {
 
   const measure = useCallback(async () => {
     const p = paths();
-    const [voices, generated, exports, drafts, cache, free] = await Promise.all([
+    const [voices, generated, exports, music, drafts, cache, free] = await Promise.all([
       FileBridge.directorySize(p.voices),
       FileBridge.directorySize(p.generated),
       FileBridge.directorySize(p.exports),
+      FileBridge.directorySize(p.music),
       FileBridge.directorySize(p.drafts),
       FileBridge.directorySize(p.cacheDir),
       FileBridge.freeSpaceBytes(),
     ]);
-    setUsage({ voices, generated, exports, drafts, cache, free });
+    setUsage({ voices, generated, exports, music, drafts, cache, free });
   }, []);
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export function StorageScreen() {
     const p = paths();
     try {
       if (kind === 'cache') {
-        await Promise.all([p.jobs, p.imports, p.staging].map(d => FileBridge.deletePath(d).catch(() => undefined)));
+        await Promise.all([p.jobs, p.imports, p.staging, p.mix].map(d => FileBridge.deletePath(d).catch(() => undefined)));
         const files = await FileBridge.listDir(p.cacheDir);
         await Promise.all(files.filter(f => f.name.startsWith('voice-test-')).map(f => FileBridge.deletePath(f.path)));
       } else if (kind === 'exports') {
@@ -73,6 +74,8 @@ export function StorageScreen() {
         <ListRow icon="music" title={t('storage.generated')} subtitle={usage ? formatBytes(usage.generated) : '…'} />
         <Divider />
         <ListRow icon="download" title={t('storage.exports')} subtitle={usage ? formatBytes(usage.exports) : '…'} />
+        <Divider />
+        <ListRow icon="music" title={t('storage.music')} subtitle={usage ? formatBytes(usage.music) : '…'} />
         <Divider />
         <ListRow icon="fileText" title={t('storage.drafts')} subtitle={usage ? formatBytes(usage.drafts) : '…'} />
         <Divider />

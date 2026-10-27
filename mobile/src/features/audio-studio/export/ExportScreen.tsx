@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,7 +7,7 @@ import { Screen } from '../../../components/layout/Screen';
 import { AppText, Banner, Button, Card, ChoiceChips, TextField } from '../../../components/ui/primitives';
 import { showToast } from '../../../components/ui/overlays';
 import { AudioTools, FileBridge } from '../../../services/native';
-import { exportsRepo, generationsRepo, type Generation } from '../../../services/db/repositories';
+import { exportsRepo, generationsRepo, musicRepo, type Generation } from '../../../services/db/repositories';
 import {
   BITRATES,
   defaultFileName,
@@ -25,6 +25,19 @@ import { toAppError } from '../../../services/native/errors';
 import { newId } from '../../../utils/id';
 import { spacing } from '../../../theme/tokens';
 import { logger } from '../../../services/logging/logger';
+import {
+  buildMixRequest,
+  mixedDurationMs,
+  MUSIC_MIX_RATE,
+  needsMix,
+  trimTooLong,
+  type MixSettings,
+} from '../../../domain/audio/mix';
+import { AppException } from '../../../services/native/errors';
+import { MusicMixCard } from '../mixer/MusicMixCard';
+import { PlayerCard } from '../player/PlayerCard';
+import { usePlayer } from '../player/playerStore';
+import { formatClock } from '../../../utils/format';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Export'>;
 
@@ -40,7 +53,11 @@ export function ExportScreen({ route }: Props) {
   const [bitrate, setBitrate] = useState(prefs.defaultBitrate);
   const [sampleRate, setSampleRate] = useState(0);
   const [name, setName] = useState(defaultFileName());
-  const [busy, setBusy] = useState<'save' | 'share' | null>(null);
+  // Trim is specific to one recording, so it is never carried over.
+  const [mix, setMix] = useState<MixSettings>(() => ({ ...prefs.mixSettings, trimStartMs: 0, trimEndMs: 0 }));
+  const [busy, setBusy] = useState<'save' | 'share' | 'preview' | null>(null);
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const previewRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,12 +69,84 @@ export function ExportScreen({ route }: Props) {
     });
   }, [route.params.generationId]);
 
-  const info = FORMAT_INFO[format];
-  const sourceRate = generation?.sampleRate ?? 22050;
-  const estimated = useMemo(
-    () => estimateSize((generation?.durationMs ?? 0) / 1000, format, bitrate, sampleRate || sourceRate),
-    [generation, format, bitrate, sampleRate, sourceRate],
+  const discardPreview = async () => {
+    const old = previewRef.current;
+    previewRef.current = null;
+    setPreviewPath(null);
+    if (old) {
+      if (usePlayer.getState().path === old) {
+        await usePlayer.getState().unload().catch(() => undefined);
+      }
+      await FileBridge.deletePath(old).catch(() => undefined);
+    }
+  };
+
+  // Previews are temporary: drop them when leaving the screen.
+  useEffect(
+    () => () => {
+      discardPreview();
+    },
+    [],
   );
+
+  const changeMix = (next: MixSettings) => {
+    setMix(next);
+    discardPreview();
+    usePreferences.getState().set('mixSettings', { ...next, trimStartMs: 0, trimEndMs: 0 });
+  };
+
+  const info = FORMAT_INFO[format];
+  const mixing = needsMix(mix);
+  const voiceMs = generation?.durationMs ?? 0;
+  const tooMuchTrim = mixing && trimTooLong(voiceMs, mix);
+  const sourceRate = mix.musicTrackId ? MUSIC_MIX_RATE : generation?.sampleRate ?? 22050;
+  const finalMs = mixedDurationMs(voiceMs, mix);
+  const estimated = useMemo(
+    () => estimateSize(finalMs / 1000, format, bitrate, sampleRate || sourceRate),
+    [finalMs, format, bitrate, sampleRate, sourceRate],
+  );
+
+  /** Renders voice + music to a temporary WAV. Returns null when no mix is needed. */
+  const renderMix = async (outputPath: string): Promise<string | null> => {
+    if (!generation?.audioPath || !needsMix(mix)) {
+      return null;
+    }
+    let musicPath: string | null = null;
+    if (mix.musicTrackId) {
+      const track = await musicRepo.get(mix.musicTrackId);
+      if (!track || !(await FileBridge.exists(track.filePath))) {
+        throw new AppException('invalid_audio_file', 'Music file missing');
+      }
+      musicPath = track.filePath;
+    }
+    await FileBridge.mkdirs(paths().mix);
+    const result = await AudioTools.mixAudio(
+      buildMixRequest({
+        settings: mix,
+        voicePath: generation.audioPath,
+        musicPath,
+        outputPath,
+        normalize: prefs.normalizeAudio,
+      }),
+    );
+    logger.info('mix.done', { music: !!musicPath, durationMs: result.durationMs, peak: result.peak });
+    return result.outputPath;
+  };
+
+  const preview = async () => {
+    setBusy('preview');
+    setError(null);
+    try {
+      await discardPreview();
+      const path = await renderMix(`${paths().mix}/${newId('preview_')}.wav`);
+      previewRef.current = path;
+      setPreviewPath(path);
+    } catch (e) {
+      setError(errorText(toAppError(e, 'export_failed')));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const runExport = async (): Promise<{ path: string; fileName: string } | null> => {
     if (!generation?.audioPath) {
@@ -66,13 +155,21 @@ export function ExportScreen({ route }: Props) {
     const fileName = withExtension(name, format);
     const outputPath = `${paths().exports}/${newId('exp_')}_${fileName}`;
     await FileBridge.mkdirs(paths().exports);
-    const result = await AudioTools.exportAudio({
-      inputPath: generation.audioPath,
-      outputPath,
-      format,
-      bitrateKbps: info.lossy ? bitrate : 0,
-      sampleRate,
-    });
+    const mixPath = await renderMix(`${paths().mix}/${newId('mix_')}.wav`);
+    let result;
+    try {
+      result = await AudioTools.exportAudio({
+        inputPath: mixPath ?? generation.audioPath,
+        outputPath,
+        format,
+        bitrateKbps: info.lossy ? bitrate : 0,
+        sampleRate,
+      });
+    } finally {
+      if (mixPath) {
+        FileBridge.deletePath(mixPath).catch(() => undefined);
+      }
+    }
     await exportsRepo.add({
       id: newId('exp_'),
       generationId: generation.id,
@@ -82,11 +179,14 @@ export function ExportScreen({ route }: Props) {
       filePath: result.outputPath,
       sizeBytes: result.sizeBytes,
     });
-    logger.info('export.done', { format, bytes: result.sizeBytes });
+    logger.info('export.done', { format, bytes: result.sizeBytes, mixed: !!mixPath });
     return { path: result.outputPath, fileName };
   };
 
   const act = async (kind: 'save' | 'share') => {
+    if (tooMuchTrim) {
+      return;
+    }
     setBusy(kind);
     setError(null);
     let exported: { path: string; fileName: string } | null = null;
@@ -122,8 +222,35 @@ export function ExportScreen({ route }: Props) {
     return <Screen topInset={false}>{null}</Screen>;
   }
 
+  const exportDisabled = !!busy || !generation.audioPath || tooMuchTrim;
+  const exportLabel = (kind: 'save' | 'share') =>
+    busy === kind
+      ? mixing
+        ? t('export.mixing')
+        : t('export.exporting')
+      : kind === 'save'
+      ? t('export.saveToDevice')
+      : t('export.share');
+
   return (
     <Screen topInset={false}>
+      <MusicMixCard value={mix} onChange={changeMix} disabled={!!busy} />
+      {tooMuchTrim ? <Banner tone="warning" text={t('mixer.trimTooLong')} /> : null}
+      {mixing ? (
+        <>
+          <AppText tone="muted">{t('mixer.length', { time: formatClock(finalMs) })}</AppText>
+          <Button
+            kind="secondary"
+            icon="play"
+            label={busy === 'preview' ? t('mixer.rendering') : t('mixer.preview')}
+            loading={busy === 'preview'}
+            disabled={exportDisabled}
+            onPress={preview}
+          />
+          {previewPath ? <PlayerCard path={previewPath} /> : null}
+        </>
+      ) : null}
+
       <Card>
         <TextField label={t('export.fileName')} value={name} onChangeText={setName} maxLength={100} autoCorrect={false} />
         <View style={styles.group}>
@@ -186,17 +313,17 @@ export function ExportScreen({ route }: Props) {
 
       <Button
         icon="download"
-        label={busy === 'save' ? t('export.exporting') : t('export.saveToDevice')}
+        label={exportLabel('save')}
         loading={busy === 'save'}
-        disabled={!!busy || !generation.audioPath}
+        disabled={exportDisabled}
         onPress={() => act('save')}
       />
       <Button
         kind="secondary"
         icon="share"
-        label={busy === 'share' ? t('export.exporting') : t('export.share')}
+        label={exportLabel('share')}
         loading={busy === 'share'}
-        disabled={!!busy || !generation.audioPath}
+        disabled={exportDisabled}
         onPress={() => act('share')}
       />
     </Screen>

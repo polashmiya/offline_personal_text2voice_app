@@ -135,10 +135,13 @@ class MonoWavReader(file: File) : Closeable {
   }
 
   /** Fills [out] and returns the number of mono samples read, or -1 at the end. */
-  fun read(out: FloatArray): Int {
+  fun read(out: FloatArray): Int = read(out, 0, out.size)
+
+  /** Like [read], filling at most [count] samples of [out] starting at [offset]. */
+  fun read(out: FloatArray, offset: Int, count: Int): Int {
     if (remaining <= 0) return -1
     val frameBytes = header.bytesPerFrame
-    val maxFrames = min(out.size, raw.size / frameBytes)
+    val maxFrames = min(count, raw.size / frameBytes)
     val wanted = min(maxFrames.toLong() * frameBytes, remaining).toInt()
     var got = 0
     while (got < wanted) {
@@ -159,7 +162,7 @@ class MonoWavReader(file: File) : Closeable {
       for (c in 0 until channels) {
         sum += if (header.bitsPerSample == 16) bb.short / 32768f else bb.float
       }
-      out[f] = sum / channels
+      out[offset + f] = sum / channels
     }
     return frames
   }

@@ -52,7 +52,7 @@ export function SettingsScreen() {
     await deleteAllUserData();
     await studioRepo.deleteAll();
     const p = paths();
-    await Promise.all([p.generated, p.exports, p.drafts, p.jobs, p.imports, p.studio].map(dir => FileBridge.deletePath(dir).catch(() => undefined)));
+    await Promise.all([p.generated, p.exports, p.drafts, p.jobs, p.imports, p.studio, p.music, p.mix].map(dir => FileBridge.deletePath(dir).catch(() => undefined)));
     showToast(t('settings.deleted'), 'success');
   };
 
