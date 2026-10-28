@@ -67,6 +67,7 @@ const en = {
     ready: 'Your audio is ready',
     saveProject: 'Save project',
     projectSaved: 'Project saved',
+    switchedVoice: "Using {{name}}: the selected voice can't read this text.",
     titlePlaceholder: 'Project title',
     backgroundMusic: 'Background music',
     insertPause: 'Insert pause',

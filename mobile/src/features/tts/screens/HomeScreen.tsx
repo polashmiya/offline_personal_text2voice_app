@@ -20,11 +20,34 @@ import { newId } from '../../../utils/id';
 import { spacing } from '../../../theme/tokens';
 import { textStats } from '../../../domain/text/estimate';
 import { usePlayer } from '../../audio-studio/player/playerStore';
+import { buildSynthesisPlan } from '../../../domain/text/pipeline';
+import { dominantLanguage } from '../../../domain/text/segmenter';
+import { textCapabilities } from '../../model-manager/services/voiceRuntime';
+import type { LanguageMode, VoiceProfile } from '../../../domain/types';
 
 const LONG_TEXT_SECONDS = 600;
 
+function canRead(voice: VoiceProfile, text: string, mode: LanguageMode): boolean {
+  const plan = buildSynthesisPlan({ text, mode, voice: textCapabilities(voice) });
+  return plan.ok || plan.error.code !== 'unsupported_language';
+}
+
+/**
+ * The voice to generate with: the chosen one when it can read the text,
+ * otherwise an installed voice that can (one made for the text's main
+ * language first), so Bangla text never ends on an English-only voice.
+ */
+function voiceForText(chosen: VoiceProfile, voices: VoiceProfile[], text: string, mode: LanguageMode): VoiceProfile {
+  if (canRead(chosen, text, mode)) {
+    return chosen;
+  }
+  const readers = voices.filter(v => v.id !== chosen.id && canRead(v, text, mode));
+  const main = mode === 'bn' || mode === 'banglish' ? 'bn' : mode === 'en' ? 'en' : dominantLanguage(text);
+  return readers.find(v => v.languages[0] === main) ?? readers[0] ?? chosen;
+}
+
 export function HomeScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigation = useNavigation();
   const errorText = useErrorText();
   const editor = useEditor();
@@ -35,13 +58,18 @@ export function HomeScreen() {
 
   const voice = voices.find(v => v.id === editor.voiceId);
 
-  // Pick a usable voice when none (or a deleted one) is selected.
+  // Pick a usable voice when none (or a deleted one) is selected: the default
+  // voice, else one in the app's language (a Bangla voice for a Bangla UI).
   useEffect(() => {
     if (!voice && voices.length) {
-      const preferred = voices.find(v => v.id === prefs.defaultVoiceId) ?? voices[0];
+      const appLanguage = i18n.language.startsWith('bn') ? 'bn' : 'en';
+      const preferred =
+        voices.find(v => v.id === prefs.defaultVoiceId) ??
+        voices.find(v => v.languages[0] === appLanguage) ??
+        voices[0];
       useEditor.getState().update({ voiceId: preferred.id, styleKey: preferred.styles[0]?.key ?? null });
     }
-  }, [voice, voices, prefs.defaultVoiceId]);
+  }, [voice, voices, prefs.defaultVoiceId, i18n.language]);
 
   const longText = textStats(editor.text, editor.speed).estimatedSeconds > LONG_TEXT_SECONDS;
 
@@ -49,15 +77,22 @@ export function HomeScreen() {
     if (!voice) {
       return;
     }
+    const chosen = voice;
+    const voiceToUse = voiceForText(chosen, voices, editor.text, editor.language);
+    if (voiceToUse.id !== chosen.id) {
+      useEditor.getState().update({ voiceId: voiceToUse.id, styleKey: voiceToUse.styles[0]?.key ?? null });
+      showToast(t('home.switchedVoice', { name: voiceToUse.name }), 'info');
+    }
+    const styleKey = voiceToUse.id === chosen.id ? editor.styleKey : voiceToUse.styles[0]?.key ?? null;
     setLastError(null);
     clearOutcome();
     await usePlayer.getState().unload();
     const outcome = await start({
       text: editor.text,
       language: editor.language,
-      voice,
-      styleKey: editor.styleKey,
-      speed: voice.supportsSpeed ? editor.speed : 1,
+      voice: voiceToUse,
+      styleKey,
+      speed: voiceToUse.supportsSpeed ? editor.speed : 1,
       projectId: editor.projectId,
       title: editor.title || editor.text.trim().slice(0, 40).replace(/\s+/g, ' ') || t('common.untitled'),
       normalize: prefs.normalizeAudio,

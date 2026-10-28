@@ -69,6 +69,7 @@ const bn: TranslationShape = {
     ready: 'আপনার অডিও প্রস্তুত',
     saveProject: 'প্রজেক্ট সংরক্ষণ',
     projectSaved: 'প্রজেক্ট সংরক্ষিত হয়েছে',
+    switchedVoice: '{{name}} ব্যবহার করা হচ্ছে: বেছে নেওয়া ভয়েস এই লেখা পড়তে পারে না।',
     titlePlaceholder: 'প্রজেক্টের নাম',
     backgroundMusic: 'ব্যাকগ্রাউন্ড মিউজিক',
     insertPause: 'বিরতি যোগ',

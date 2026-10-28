@@ -8,6 +8,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -40,8 +41,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 class VoiceEngineModule(private val context: ReactApplicationContext) :
   NativeVoiceEngineSpec(context), ComponentCallbacks2 {
 
+  /**
+   * Background priority: inference saturates every core it gets, and at the
+   * app's foreground priority it starved the UI and System UI ("System UI
+   * isn't responding"). onnxruntime's worker threads are created from this
+   * thread when a voice loads, so they inherit the same priority.
+   */
   private val inference: ExecutorService = Executors.newSingleThreadExecutor { r ->
-    Thread(r, "tts-inference").apply { priority = Thread.NORM_PRIORITY }
+    Thread({
+      Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND)
+      r.run()
+    }, "tts-inference")
   }
   private val mainHandler = Handler(Looper.getMainLooper())
   private val cancelFlags = ConcurrentHashMap<String, AtomicBoolean>()
@@ -98,12 +108,42 @@ class VoiceEngineModule(private val context: ReactApplicationContext) :
     }
   }
 
+  /**
+   * sherpa-onnx initializes espeak-ng once per process, with the dataDir of the
+   * first voice that uses it, and keeps reading language files from that folder
+   * for every later voice. Voices are test-loaded from a staging folder that is
+   * then moved (and can later be deleted), so a voice needing a language espeak
+   * had not loaded yet (Bengali after an English voice) got no phonemes and no
+   * audio. Every voice therefore uses one stable, app-owned copy instead.
+   */
+  private fun sharedEspeakDir(source: String): String {
+    if (source.isEmpty() || !File(source, "phontab").isFile) return source
+    val shared = File(context.filesDir, "engine/espeak-ng-data")
+    copyMissing(File(source), shared)
+    return shared.absolutePath
+  }
+
+  /** Adds files that are not in [to] yet; each file lands complete (temp file + rename). */
+  private fun copyMissing(from: File, to: File) {
+    to.mkdirs()
+    for (child in from.listFiles() ?: return) {
+      val target = File(to, child.name)
+      if (child.isDirectory) {
+        copyMissing(child, target)
+      } else if (!target.isFile) {
+        val partial = File(to, "${child.name}.partial")
+        child.copyTo(partial, overwrite = true)
+        if (!partial.renameTo(target)) partial.delete()
+      }
+    }
+  }
+
   private fun buildConfig(c: ReadableMap): OfflineTtsConfig {
     val engine = c.getString("engine")!!
     val model = c.getString("modelPath")!!
     val tokens = c.getString("tokensPath")!!
     val lexicon = c.getString("lexiconPath") ?: ""
-    val dataDir = c.getString("dataDir") ?: ""
+    val dataDir = sharedEspeakDir(c.getString("dataDir") ?: "")
     val dictDir = c.getString("dictDir") ?: ""
     requireFile(model, "Model")
     requireFile(tokens, "Tokens")

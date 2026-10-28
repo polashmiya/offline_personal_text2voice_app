@@ -5,6 +5,7 @@ import { FileBridge } from '../native';
  * goes into SQLite.
  *
  *   files/voices/<voiceId>/      installed voice packages
+ *   files/engine/espeak-ng-data/ shared espeak-ng data (managed by the native engine)
  *   files/generated/<id>.wav     final generated audio (history)
  *   files/exports/               exported files (shareable via FileProvider)
  *   files/drafts/                editor auto-save
@@ -14,7 +15,7 @@ import { FileBridge } from '../native';
  *   cache/share/                 voice dataset zips being shared (temporary, cleared on start)
  *   cache/jobs/<jobId>/          per-generation chunk audio (temporary)
  *   cache/imports/               copies of picked files (temporary)
- *   cache/staging/               voice packages being validated
+ *   files/staging/               voice packages being validated (cleared on start)
  */
 let cached: ReturnType<typeof build> | null = null;
 
@@ -29,7 +30,8 @@ function build() {
     drafts: `${filesDir}/drafts`,
     jobs: `${cacheDir}/jobs`,
     imports: `${cacheDir}/imports`,
-    staging: `${cacheDir}/staging`,
+    // Not in cache/: Android may purge the cache mid-import (low storage), e.g. while the replace dialog is open.
+    staging: `${filesDir}/staging`,
     studio: `${filesDir}/studio`,
     music: `${filesDir}/music`,
     mix: `${cacheDir}/mix`,
